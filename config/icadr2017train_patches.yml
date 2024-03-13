@@ -1,0 +1,9 @@
+in_dir : /home/qy41tewa/rlmap_home/data/ICDAR2017/icdar2017-train_binarized
+out_dir : /cluster/qy41tewa/rl-map/dataset_patch/train/icdar2017_train_sift_patches_binarized_1000
+win_size : 32
+patches_per_page : -1       
+num_of_cluster : 1000
+sigma : 2.5
+black_pixel_thresh : -1
+white_pixel_thresh : 0.95
+centered : True
