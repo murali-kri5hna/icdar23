@@ -149,12 +149,12 @@ if __name__ == "__main__":
 
     parser = argparse.ArgumentParser(description="extract patches from images")
     
-    parser.add_argument('--config',
-                         help='configuration YAML')
+    # parser.add_argument('--config',
+    #                      help='configuration YAML')
     parser.add_argument('--in_dir', metavar='in_dir', dest='in_dir', type=str, nargs=1,
-                        help='input directory')#, required=True)
+                        help='input directory', required=True)
     parser.add_argument('--out_dir', metavar='out_dir', dest='out_dir', type=str, nargs=1,
-                        help='output directory')#, required=True)
+                        help='output directory', required=True)
     parser.add_argument('--win_size', metavar='win_size', dest='win_size', type=int, nargs='?',
                         help='size of the patch',
                         default=32)
@@ -176,12 +176,12 @@ if __name__ == "__main__":
                     default=True)
 
     args = parser.parse_args()
-    print("Args from config:\n",args,"\n")
+    # print("Args from config:\n",args,"\n")
 
-    if args.config:
-        config = load_config(args)[0]
-        args = Namespace(**config)
-    print("Args updated from config:\n",args,"\n")
+    # if args.config:
+    #     config = load_config(args)[0]
+    #     args = Namespace(**config)
+    # print("Args updated from config:\n",args,"\n")
 
 
     assert os.path.exists(args.in_dir[0]), 'in_dir {} does not exist'.format(args.in_dir[0])
