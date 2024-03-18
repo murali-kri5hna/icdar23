@@ -7,6 +7,8 @@ import glob
 import logging
 import sklearn.preprocessing
 from tqdm import tqdm
+from utils.utils import load_config
+from argparse import Namespace
 
 OPENBLAS_NUM_THREADS = 1
 
@@ -146,10 +148,13 @@ if __name__ == "__main__":
     logging.basicConfig(level=logging.INFO, format='%(asctime)s %(levelname)s %(message)s ')
 
     parser = argparse.ArgumentParser(description="extract patches from images")
+    
+    parser.add_argument('--config',
+                         help='configuration YAML')
     parser.add_argument('--in_dir', metavar='in_dir', dest='in_dir', type=str, nargs=1,
-                        help='input directory', required=True)
+                        help='input directory')#, required=True)
     parser.add_argument('--out_dir', metavar='out_dir', dest='out_dir', type=str, nargs=1,
-                        help='output directory', required=True)
+                        help='output directory')#, required=True)
     parser.add_argument('--win_size', metavar='win_size', dest='win_size', type=int, nargs='?',
                         help='size of the patch',
                         default=32)
@@ -171,10 +176,17 @@ if __name__ == "__main__":
                     default=True)
 
     args = parser.parse_args()
+    print("Args from config:\n",args,"\n")
+
+    if args.config:
+        config = load_config(args)[0]
+        args = Namespace(**config)
+    print("Args updated from config:\n",args,"\n")
 
 
     assert os.path.exists(args.in_dir[0]), 'in_dir {} does not exist'.format(args.in_dir[0])
 
+    logging.info('args.out_dir[0] %s' % args.out_dir[0])
 
     if not os.path.exists(args.out_dir[0]):
         logging.info('creating directory %s' % args.out_dir[0])
@@ -185,7 +197,7 @@ if __name__ == "__main__":
     assert args.win_size % 2 == 0, 'win_size must be even'
 
     num_cores = int(multiprocessing.cpu_count() / 2)
-    num_cores = 10
+    # num_cores = 10
     path_to_centers = ''
 
     files = [f for f in glob.glob(args.in_dir[0] + '/**/*.*', recursive=True) if os.path.isfile(f) and is_image_file(f)]

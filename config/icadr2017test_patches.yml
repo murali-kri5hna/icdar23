@@ -1,0 +1,8 @@
+in_dir : /home/qy41tewa/rlmap_home/data/ICDAR2017/icdar2017-test_binarized
+out_dir : /cluster/qy41tewa/rl-map/dataset_patch/test/icdar2017_test_sift_patches_binarized_2kpp
+win_size : 32
+patches_per_page : 2000
+sigma : 2.5
+black_pixel_thresh : -1
+white_pixel_thresh : 0.95
+centered : True
