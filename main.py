@@ -53,7 +53,8 @@ def compute_page_features(_features, writer, pages):
 def encode_per_class(model, args, poolings=[]):
     testset = args['testset']
     ds = WriterZoo.datasets[testset['dataset']]['set'][testset['set']]
-    path = ds['path']
+    basepath = WriterZoo.datasets[testset['dataset']]['basepath']
+    path = os.path.join(basepath, ds['path'])
     regex = ds['regex']
 
     pfs_per_pooling = [[] for i in poolings]
@@ -155,6 +156,7 @@ def test(model, logger, args, name='Test'):
 
     table = []
     columns = ['Pooling', 'mAP', 'Top1']
+    breakpoint()
     for i, pfs in enumerate(pfs_per_pooling):
 
         # pca with whitening and l2 norm

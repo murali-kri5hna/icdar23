@@ -21,11 +21,11 @@ class WriterZoo:
         'icdar2017': {
             'basepath': '/cluster/qy41tewa/rl-map/dataset_patch',
             'set': {
-                'test' :  {'path': 'icdar2017_test_sift_patches_binarized_2kpp',
+                'test' :  {'path': 'test/icdar2017_test_sift_patches_binarized_2kpp',
                                   'regex' : {'writer': '(\d+)', 'page': '\d+-IMG_MAX_(\d+)'}},
 
-                'train' :  {'path': '/icdar2017_train_sift_patches_binarized_1000',
-                                  'regex' : {'cluster' : '(\d+)', 'writer': '\d+_(\d+)', 'page' : '\d+_\d+-\d+-IMG_MAX_(\d+)'}},
+                'train' :  {'path': 'train/icdar2017_train_sift_patches_binarized_1000',
+                                  'regex' : {'cluster' : '(\d+)', 'writer': '\d+_(\d+)', 'page' : '\d+_\d+-IMG_MAX_(\d+)_\d+'}},
                 
             }
         },

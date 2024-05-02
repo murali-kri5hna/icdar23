@@ -40,6 +40,10 @@ def make_dataset(cur_dir, rxs, extensions):
     labels = {}
     label_to_int = {}
     int_to_label = {}
+    
+    logging.info("Files found are: %s", files[:10])
+    logging.info("Number of files found: %s", len(files))
+
     for path in tqdm(files, 'Labels'):
         f = os.path.basename(path)
         for name, regex in rxs.items():
