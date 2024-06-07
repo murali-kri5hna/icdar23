@@ -112,6 +112,10 @@ def encode_per_class(model, args, poolings=[]):
 
 
 def inference(model, ds, args):
+    '''
+    Inference on the dataset and return the features, writers and pages.
+    '''
+
     model.eval()
     loader = torch.utils.data.DataLoader(ds, num_workers=4, batch_size=args['test_batch_size'])
 
