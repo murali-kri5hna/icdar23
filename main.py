@@ -150,14 +150,17 @@ def test(model, logger, args, name='Test'):
     # extract the global page descriptors
     pfs_per_pooling, writer = encode_per_class(model, args, poolings=sumps)
 
+    breakpoint()
+    
     best_map = -1
     best_top1 = -1
     best_pooling = ''
 
     table = []
     columns = ['Pooling', 'mAP', 'Top1']
-    breakpoint()
     for i, pfs in enumerate(pfs_per_pooling):
+
+        breakpoint()
 
         # pca with whitening and l2 norm
         for pca_dim in [512]:
@@ -176,6 +179,8 @@ def test(model, logger, args, name='Test'):
             _eval = Retrieval()
             print(f'Calculate mAP..')
 
+            breakpoint()
+            
             res, _ = _eval.eval(pfs_tf, writer)
 
             p = f'{pca_dim}' if pca_dim != -1 else 'full'

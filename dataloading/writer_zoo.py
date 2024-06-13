@@ -26,6 +26,9 @@ class WriterZoo:
 
                 'train' :  {'path': 'train/icdar2017_train_sift_patches_binarized_1000',
                                   'regex' : {'cluster' : '(\d+)', 'writer': '\d+_(\d+)', 'page' : '\d+_\d+-IMG_MAX_(\d+)_\d+'}},
+
+                'debug' :  {'path': 'debug',
+                                  'regex' : {'writer': '(\d+)', 'page': '\d+-IMG_MAX_(\d+)'}},                
                 
             }
         },

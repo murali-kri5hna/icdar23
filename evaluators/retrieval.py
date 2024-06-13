@@ -18,7 +18,6 @@ class Retrieval:
 
     def eval(self, features, labels, use_precomputed_distances=False):
         distances = self.calc_distances(features, labels, use_precomputed_distances=use_precomputed_distances)
-
         logger_result, csv_result = self.calc_map_from_distances(labels, distances)
         return logger_result, csv_result
 

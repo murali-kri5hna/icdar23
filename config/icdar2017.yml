@@ -26,7 +26,7 @@ optimizer_options:
   final_lr: 0.00001
   warmup_epochs : 5
 
-super_fancy_new_name: icdar2017_testing
+super_fancy_new_name: icdar2017_training
 
 model :  
     name : resnet56
@@ -34,7 +34,7 @@ model :
     encoding : netrvlad
 
 train_options: 
-  epochs: 10 
+  epochs: 30 
   batch_size: 1024                               
   callback : early_stopping
   callback_patience : 5
