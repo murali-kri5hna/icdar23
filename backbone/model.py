@@ -10,6 +10,10 @@ class Model(torch.nn.Module):
     def __init__(self, backbone=resnet56(), num_clusters=100, dim=64, random=False):
         super(Model, self).__init__()
         self.backbone = backbone
+        # “The last fully connected layer of the network is dropped, and the output of the global 
+        # averaging pooling layer of dimension (64, 1, 1) is used” 
+        # ([Peer et al., 2023, p. 5](zotero://select/library/items/73PPT7VX)) 
+        # ([pdf](zotero://open-pdf/library/items/LCJPH7KQ?page=5&annotation=IMN2HKB6))
         self.backbone.fc = torch.nn.Identity()
         self.nv = NetVLAD(num_clusters=num_clusters, dim=dim, random=random)
 

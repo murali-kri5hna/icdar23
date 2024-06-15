@@ -27,6 +27,9 @@ from PIL import ImageOps, Image, ImageDraw, ImageFont
 mpl.use('Agg')
 import matplotlib.pyplot as plt
 
+def const_scheduler(value, epochs, niter_per_ep):
+    schedule = np.ones(epochs * niter_per_ep) * value
+    return schedule
 
 def cosine_scheduler(base_value, final_value, epochs, niter_per_ep, warmup_epochs=0, start_warmup_value=0):
     warmup_schedule = np.array([])

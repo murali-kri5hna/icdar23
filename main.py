@@ -94,6 +94,9 @@ def encode_per_class(model, args, poolings=[]):
             img = img.cuda()
 
             with torch.no_grad():
+
+                breakpoint()
+
                 feat = model(img)
                 feat = torch.nn.functional.normalize(feat)
             feats.append(feat.detach().cpu().numpy())
