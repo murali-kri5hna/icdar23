@@ -1,2 +1,13 @@
 venv/
+.ipynb_checkpoints/
+__pycache__/
+backbone/__pycache__/
+config/.ipynb_checkpoints/
+dataloading/.ipynb_checkpoints/
+dataloading/__pycache__/
+debugging.ipynb
+evaluators/.ipynb_checkpoints/
+evaluators/__pycache__/
+helpers/.ipynb_checkpoints/
+utils/.ipynb_checkpoints/
 utils/__pycache__/

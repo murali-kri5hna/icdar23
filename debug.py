@@ -94,9 +94,6 @@ def encode_per_class(model, args, poolings=[]):
             img = img.cuda()
 
             with torch.no_grad():
-
-                breakpoint()
-
                 feat = model(img)
                 feat = torch.nn.functional.normalize(feat)
             feats.append(feat.detach().cpu().numpy())
@@ -115,10 +112,6 @@ def encode_per_class(model, args, poolings=[]):
 
 
 def inference(model, ds, args):
-    '''
-    Inference on the dataset and return the features, writers and pages.
-    '''
-
     model.eval()
     loader = torch.utils.data.DataLoader(ds, num_workers=4, batch_size=args['test_batch_size'])
 
@@ -397,25 +390,25 @@ def main(args):
     transform = transforms.Compose(tfs)
 
     train_dataset = None
-    if args['trainset']:
-        d = WriterZoo.get(**args['trainset'])
-        train_dataset = d.TransformImages(transform=transform).SelectLabels(label_names=['cluster', 'writer', 'page'])
+    # if args['trainset']:
+    #     d = WriterZoo.get(**args['trainset'])
+    #     train_dataset = d.TransformImages(transform=transform).SelectLabels(label_names=['cluster', 'writer', 'page'])
     
-    if args.get('use_test_as_validation', False):
-        val_ds = WriterZoo.get(**args['testset'])
-        if args.get('grayscale', None):
-            test_transform = transforms.Compose([
-                transforms.ToTensor(),
-                transforms.Grayscale(num_output_channels=3)
-            ])
-        else:
-            test_transform = transforms.ToTensor()
-        val_ds = val_ds.TransformImages(transform=test_transform).SelectLabels(label_names=['writer', 'page'])
+    # if args.get('use_test_as_validation', False):
+    #     val_ds = WriterZoo.get(**args['testset'])
+    #     if args.get('grayscale', None):
+    #         test_transform = transforms.Compose([
+    #             transforms.ToTensor(),
+    #             transforms.Grayscale(num_output_channels=3)
+    #         ])
+    #     else:
+    #         test_transform = transforms.ToTensor()
+    #     val_ds = val_ds.TransformImages(transform=test_transform).SelectLabels(label_names=['writer', 'page'])
 
-        train_ds = torch.utils.data.Subset(train_dataset, range(len(train_dataset)))
-        val_ds = torch.utils.data.Subset(val_ds, range(len(val_ds)))
-    else:
-        train_ds, val_ds = train_val_split(train_dataset)
+    #     train_ds = torch.utils.data.Subset(train_dataset, range(len(train_dataset)))
+    #     val_ds = torch.utils.data.Subset(val_ds, range(len(val_ds)))
+    # else:
+    #     train_ds, val_ds = train_val_split(train_dataset)
 
     optimizer = get_optimizer(args, model)
 
@@ -427,11 +420,11 @@ def main(args):
 
         optimizer.load_state_dict(checkpoint['optimizer_state_dict'])    
 
-    if not args['only_test']:
-        model, optimizer = train(model, train_ds, val_ds, args, logger, optimizer)
+    # if not args['only_test']:
+    #     model, optimizer = train(model, train_ds, val_ds, args, logger, optimizer)
 
     # testing
-    save_model(model, optimizer, args['train_options']['epochs'], os.path.join(logger.log_dir, 'model.pt'))
+    # save_model(model, optimizer, args['train_options']['epochs'], os.path.join(logger.log_dir, 'model.pt'))
     test(model, logger, args, name='Test')
     logger.finish()
 
