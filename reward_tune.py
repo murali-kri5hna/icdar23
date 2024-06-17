@@ -94,7 +94,9 @@ def train_one_epoch(model, train_ds, triplet_loss, optimizer, scheduler, epoch, 
         logger.log_value(f'loss', loss.item())
 
         loss = -loss*map
+        logger.log_value(f'reward', loss.item())
 
+        
         logger.log_value(f'lr', optimizer.param_groups[0]['lr'])
 
         # compute gradient and update weights
