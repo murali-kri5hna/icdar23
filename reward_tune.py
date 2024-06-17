@@ -1,74 +1,40 @@
 import logging, os, argparse, math, random, re, glob
+import pickle as pk
+from pathlib import Path
+from tqdm import tqdm
 
-import torch
-import torch.optim as optim
 import numpy as np
+import torch
+from torch import optim
+import torch.backends.cudnn as cudnn
 
 from torchvision import transforms
+from tqdm import tqdm
 
-from utils.utils import load_config, getLogger, save_model, const_scheduler
+from pytorch_metric_learning import samplers
+from sklearn.decomposition import PCA
+from sklearn.preprocessing import normalize
+from utils.utils import GPU, seed_everything, load_config, getLogger, save_model, const_scheduler
 
 from dataloading.writer_zoo import WriterZoo
 from dataloading.GenericDataset import FilepathImageDataset
 from dataloading.regex import pil_loader
 
+from evaluators.retrieval import Retrieval
+from page_encodings import SumPooling
+
 from aug import Erosion, Dilation
+from utils.triplet_loss import TripletLoss
 
 from backbone import resnets
 from backbone.model import Model
 
-from main import prepare_logging, train_val_split, test, get_optimizer, validate
+import torch.multiprocessing
+torch.multiprocessing.set_sharing_strategy('file_system')
+
+from main import prepare_logging, train_val_split, test, get_optimizer, validate, compute_page_features
 
 
-
-
-# Define optimizer
-optimizer = optim.Adam(model.parameters(), lr=1e-4)
-
-# Initialize previous MaP for reward shaping
-previous_map = 0
-
-# Fine-tuning loop
-num_epochs = 10
-for epoch in range(num_epochs):
-    model.train()
-    running_reward = 0.0
-    
-    for inputs, labels in train_loader:  # Assuming train_loader is defined
-        optimizer.zero_grad()
-        
-        # Forward pass through NetVLAD
-        features = model(inputs)
-        
-        # Compute reward
-        current_map = compute_map(features, labels)
-        reward = shaped_reward(current_map, previous_map)
-        
-        # Compute negative reward for gradient ascent
-        loss = -reward
-        loss.backward()
-        
-        optimizer.step()
-        running_reward += reward
-        
-        # Update previous MaP
-        previous_map = current_map
-    
-    print(f"Epoch {epoch + 1}, Reward: {running_reward / len(train_loader)}")
-
-    # Evaluate model with MaP
-    with torch.no_grad():
-        val_features, val_labels = [], []
-        for inputs, labels in val_loader:  # Assuming val_loader is defined
-            features = model(inputs)
-            val_features.append(features)
-            val_labels.append(labels)
-        
-        val_features = torch.cat(val_features)
-        val_labels = torch.cat(val_labels)
-        current_map = compute_map(val_features, val_labels)
-    
-    print(f"Validation MaP: {current_map}")
 
 def train_one_epoch(model, train_ds, triplet_loss, optimizer, scheduler, epoch, args, logger):
 
@@ -84,7 +50,9 @@ def train_one_epoch(model, train_ds, triplet_loss, optimizer, scheduler, epoch, 
     iters = len(train_triplet_loader)
     logger.log_value('Epoch', epoch, commit=False)
 
-    for i, (samples, label) in enumerate(pbar):
+
+    for i, (samples, labels) in enumerate(pbar):
+    # for i, (pages, writers) in enumerate(pbar):
         it = iters * epoch + i
         for i, param_group in enumerate(optimizer.param_groups):
             if it > (len(scheduler) - 1):
@@ -94,21 +62,39 @@ def train_one_epoch(model, train_ds, triplet_loss, optimizer, scheduler, epoch, 
             
             if param_group.get('name', None) == 'lambda':
                 param_group['lr'] *= args['optimizer_options']['gmp_lr_factor']
-   
+        ############################
+        if len(labels) == 3:
+            writers, pages = labels[1], labels[2]
+        else:
+            writers, pages = labels[0], labels[1]
+
+        ############################
         samples = samples.cuda()
         samples.requires_grad=True
 
         if args['train_label'] == 'cluster':
-            l = label[0]
+            l = labels[0]
         if args['train_label'] == 'writer':
-            l = label[1]
+            l = labels[1]
 
         l = l.cuda()
-
         emb = model(samples)
+        ## Referring to the validation step, we are utilizing the steps in inference and compute_page_features
+        emb = torch.nn.functional.normalize(emb) 
+        feats = emb.detach().cpu().numpy()
+
+        page_features, page_writer = compute_page_features(feats, writers, pages)
+
+
+        _eval = Retrieval()
+        distances = _eval.calc_distances(page_features, page_writer)
+        map = _eval.calc_map_from_distances(labels, distances)
 
         loss = triplet_loss(emb, l, emb, l)
         logger.log_value(f'loss', loss.item())
+
+        loss = -loss*map
+
         logger.log_value(f'lr', optimizer.param_groups[0]['lr'])
 
         # compute gradient and update weights
@@ -126,7 +112,7 @@ def train(model, train_ds, val_ds, args, logger, optimizer):
     epochs = args['train_options']['epochs']
 
     niter_per_ep = math.ceil(args['train_options']['length_before_new_iter'] / args['train_options']['batch_size'])
-    lr_schedule = const_scheduler(optimizer, args['train_options']['lr'], niter_per_ep)
+    lr_schedule = const_scheduler(args['optimizer_options']['base_lr'], epochs, niter_per_ep, args['optimizer_options']['warmup_epochs'])
 
     best_epoch = -1
     best_map = validate(model, val_ds, args)
@@ -134,7 +120,7 @@ def train(model, train_ds, val_ds, args, logger, optimizer):
     print(f'Val-mAP: {best_map}')
     logger.log_value('Val-mAP', best_map)
 
-    # loss = TripletLoss(margin=args['train_options']['margin'])
+    loss = TripletLoss(margin=args['train_options']['margin'])
     # print('Using Triplet Loss')
 
     for epoch in range(epochs):
@@ -254,5 +240,10 @@ if __name__ == '__main__':
     args = parser.parse_args()
         
     config = load_config(args)
+
+    GPU.set(args.gpuid, 400)
+    cudnn.benchmark = True
+    
+    seed_everything(args.seed)
     
     reward_tune(config)

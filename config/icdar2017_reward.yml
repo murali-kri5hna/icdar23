@@ -16,14 +16,15 @@ use_test_as_validation: False
 # only use when train on color
 grayscale : False
 
-data_augmentation : morph
+# data_augmentation : morph
 
 # base lr 5e-4 to 1e-5
 optimizer_options: 
   optimizer: adam 
+  base_lr: 0.000001
   wd: 0 
-  lr: 0.000001
-  warmup_epochs : 5
+  final_lr: 0.000001
+  warmup_epochs : 2
 
 super_fancy_new_name: icdar2017_finetuning
 
@@ -33,7 +34,7 @@ model :
     encoding : netrvlad
 
 train_options: 
-  epochs: 10 
+  epochs: 20
   batch_size: 1024                               
   callback : early_stopping
   callback_patience : 5

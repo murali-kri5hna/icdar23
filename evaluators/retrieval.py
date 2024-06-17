@@ -145,6 +145,33 @@ class Retrieval:
             csv_result['perc-{}'.format(i)] = np.mean(np.array(percentage_eval)[:, i-1])
 
         return logger_result, csv_result
+    
+    def calc_only_map_from_distances(labels, distances):
+        avg_precision = []
+
+        for i in range(0, len(labels)):
+            cur_dists = distances[i, :]
+            idxs = np.argsort(cur_dists).flatten()
+            sorted_writers = np.array(labels)
+            sorted_writers = sorted_writers[idxs]
+            cur_writer = labels[i]
+
+            cur_sum = 0.0
+
+            # calculate average precision
+            cur_writer_idxs = np.where(sorted_writers == cur_writer)[0]
+            for j in range(1, len(cur_writer_idxs)):  # page with idx 0 is original page
+                cur_sum = cur_sum + float(j) / cur_writer_idxs[j]
+
+            if len(cur_writer_idxs) > 1:
+                avg_precision.append(cur_sum / float(len(cur_writer_idxs) - 1))
+            else:
+                logging.warning("writer %d has only one page ... unable to calculate mean_average_precision, skipping"
+                                % cur_writer)
+
+        mean_average_precision = np.mean(avg_precision)
+
+        return mean_average_precision
 
     def precision_recall_curve(self, features, labels, use_precomputed_distances=False):
         if use_precomputed_distances:
