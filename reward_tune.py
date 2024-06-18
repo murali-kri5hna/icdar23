@@ -83,12 +83,20 @@ def train_one_epoch(model, train_ds, triplet_loss, optimizer, scheduler, epoch, 
         emb = torch.nn.functional.normalize(emb) 
         feats = emb.detach().cpu().numpy()
 
-        page_features, page_writer = compute_page_features(feats, writers, pages)
+        # breakpoint()
+        
+        page_features, page_writers = compute_page_features(feats, np.array(writers), np.array(pages))
 
-
+        norm = 'powernorm'
+        pooling = SumPooling(norm)
+        descs = pooling.encode(page_features)
+        
         _eval = Retrieval()
-        distances = _eval.calc_distances(page_features, page_writer)
-        map = _eval.calc_map_from_distances(labels, distances)
+        
+        # breakpoint()
+        
+        distances = _eval.calc_distances(descs, page_writers, use_precomputed_distances=False)
+        map = _eval.calc_only_map_from_distances(page_writers, distances)
 
         loss = triplet_loss(emb, l, emb, l)
         logger.log_value(f'loss', loss.item())
@@ -104,7 +112,7 @@ def train_one_epoch(model, train_ds, triplet_loss, optimizer, scheduler, epoch, 
         loss.backward()
         torch.nn.utils.clip_grad_norm_(model.parameters(), 2)
         optimizer.step()
-
+    
     torch.cuda.empty_cache()
     return model
 
@@ -196,7 +204,7 @@ def reward_tune(args):
 
     if args['trainset']:
         d = WriterZoo.get(**args['trainset'])
-        train_dataset = d.TransformImages(transform=transform).SelectLabels(label_names=['writer', 'page'])
+        train_dataset = d.TransformImages(transform=transform).SelectLabels(label_names=['cluster', 'writer', 'page'])
     
     if args.get('use_test_as_validation', False):
         val_ds = WriterZoo.get(**args['testset'])
@@ -226,22 +234,30 @@ def reward_tune(args):
     else:
         print('No checkpoint provided. Train model and provide checkpoint for reward finetuning.')
 
-    model, optimizer = train(model, optimizer, train_ds, val_ds, args['finetune_options']['epochs'], logger)
+    model, optimizer = train(model, train_ds, val_ds, args, logger, optimizer)
 
     save_model(model, optimizer, args['train_options']['epochs'], os.path.join(logger.log_dir, 'model.pt'))
     test(model, logger, args, name='Test')
     logger.finish()
 
 if __name__ == '__main__':
+
+    logging.basicConfig(level=logging.INFO, format='%(asctime)s %(levelname)s %(message)s ')
     parser = argparse.ArgumentParser()
 
     parser.add_argument('--config', default='config/icdar2017.yml', help='Path to the configuration file')
     parser.add_argument('--checkpoint', default=None, type=str, metavar='PATH',
                         help='path to latest checkpoint (default: none)')
+    parser.add_argument('--no-cuda', action='store_true', default=False,
+                        help='enables CUDA training')
+    parser.add_argument('--gpuid', default='0', type=str,
+                        help='id(s) for CUDA_VISIBLE_DEVICES')
+    parser.add_argument('--seed', default=2174, type=int,
+                        help='seed')
 
     args = parser.parse_args()
         
-    config = load_config(args)
+    config = load_config(args)[0]
 
     GPU.set(args.gpuid, 400)
     cudnn.benchmark = True

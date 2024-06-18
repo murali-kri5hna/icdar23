@@ -145,7 +145,8 @@ class Retrieval:
             csv_result['perc-{}'.format(i)] = np.mean(np.array(percentage_eval)[:, i-1])
 
         return logger_result, csv_result
-    
+
+    @staticmethod
     def calc_only_map_from_distances(labels, distances):
         avg_precision = []
 
