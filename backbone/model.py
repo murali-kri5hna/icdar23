@@ -4,6 +4,7 @@ from torch import nn
 import torch.nn.functional as F
 
 from backbone.resnets import resnet56
+import argparse
 
 class Model(torch.nn.Module):
 
@@ -88,3 +89,103 @@ class NetVLAD(nn.Module):
             vlad = F.normalize(vlad, p=2, dim=1)  # L2 normalize
 
         return vlad
+    
+class RewardtuneModelFC(torch.nn.Module):
+    def __init__(self, dim=64, num_writers=394):
+        self.fc = torch.nn.Linear(dim, num_writers)
+        
+    def forward(self, normalized_nv_enc):
+        output = self.fc(normalized_nv_enc)
+        softmax_output = F.softmax(output, dim=1)
+        return softmax_output
+    
+class RewardtuneModel(torch.nn.Module):
+    def __init__(self, model, rewardtune_model_fc):
+        super(RewardtuneModel, self).__init__()
+        self.model = model
+        self.rewardtune_model_fc = rewardtune_model_fc
+
+    def forward(self, x):
+        embeddings = self.model(x)
+        output = self.rewardtune_model_fc(embeddings)
+        return output
+
+
+
+
+if __name__ == '__main__':
+    parser = argparse.ArgumentParser()
+
+    parser.add_argument('--test_finetune', default=False, action='store_true',
+                        help='only test')
+
+    parser.add_argument('--checkpoint_path', type=str, default='checkpoint.pth',
+                        help='path to the checkpoint file')
+    args = parser.parse_args()
+
+    # Load the checkpoint
+    checkpoint = torch.load(args.checkpoint_path)
+
+    # Create an instance of the Model class
+    model = Model()
+    
+    # Freeze the parameters of the backbone network
+    for param in model.backbone.parameters():
+        param.requires_grad = False
+    
+    # Freeze the parameters of the NetVLAD network
+    for param in model.nv.parameters():
+        param.requires_grad = False
+
+    # Load the weights from the checkpoint
+    model.load_state_dict(checkpoint['model_state_dict'])
+
+    # Set the model to evaluation mode
+    model.eval()
+    
+
+    # Create an instance of the RewardtuneModelFC class
+    rewardtune_model_fc = RewardtuneModelFC()
+
+    # Train only the fully connected layer
+    optimizer = torch.optim.Adam(rewardtune_model_fc.fc.parameters(), lr=0.001)
+    criterion = torch.nn.CrossEntropyLoss()
+
+    # Training loop
+    for epoch in range(num_epochs):
+        for images, labels in train_loader:
+            optimizer.zero_grad()
+
+            # Pass the images through the pretrained model to get the embeddings
+            with torch.no_grad():
+                embeddings = model(images)
+
+            outputs = rewardtune_model_fc(embeddings)
+            loss = criterion(outputs, labels)
+            loss.backward()
+            optimizer.step()
+
+    # Unfreeze the parameters of the backbone network
+    for param in model.backbone.parameters():
+        param.requires_grad = True
+    
+    # Unfreeze the parameters of the NetVLAD network
+    for param in model.nv.parameters():
+        param.requires_grad = True
+
+    # Train the full network
+    optimizer = torch.optim.Adam(rewardtune_model_fc.parameters(), lr=0.001)
+
+    # Training loop
+    for epoch in range(num_epochs):
+        for images, labels in train_loader:
+            optimizer.zero_grad()
+
+            # Pass the images through the pretrained model to get the embeddings
+            with torch.no_grad():
+                embeddings = model(images)
+
+            outputs = rewardtune_model_fc(embeddings)
+            loss = criterion(outputs, labels)
+            loss.backward()
+            optimizer.step()
