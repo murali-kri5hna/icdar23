@@ -91,13 +91,30 @@ class NetVLAD(nn.Module):
         return vlad
     
 class RewardtuneModelFC(torch.nn.Module):
-    def __init__(self, dim=64, num_writers=394):
-        self.fc = torch.nn.Linear(dim, num_writers)
+    def __init__(self, dim=6400, num_writers=394):
+        super(RewardtuneModelFC, self).__init__()
+        #self.fc = torch.nn.Linear(dim, num_writers)
+        self.fc1 = nn.Linear(dim, out_features=1024)  # Replace ... with the appropriate input feature size
+        self.fc2 = nn.Linear(in_features=1024, out_features=num_writers)
+
+        self._init_params()
+        
+    def _init_params(self):
+        self.fc1.weight.data.normal_(0, 0.01)
+        self.fc1.bias.data.fill_(0)
+        self.fc2.weight.data.normal_(0, 0.01)
+        self.fc2.bias.data.fill_(0)
         
     def forward(self, normalized_nv_enc):
-        output = self.fc(normalized_nv_enc)
-        softmax_output = F.softmax(output, dim=1)
+        output = F.relu(self.fc1(normalized_nv_enc))
+        softmax_output = F.softmax(self.fc2(output), dim=1)
         return softmax_output
+
+    # def forward(self, normalized_nv_enc):
+    #     output = self.fc(normalized_nv_enc)
+    #     softmax_output = F.softmax(output, dim=1)
+    #     return softmax_output
+
     
 class RewardtuneModel(torch.nn.Module):
     def __init__(self, model, rewardtune_model_fc):

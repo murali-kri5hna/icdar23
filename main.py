@@ -160,7 +160,7 @@ def test(model, logger, args, name='Test'):
 
     table = []
     columns = ['Pooling', 'mAP', 'Top1']
-    breakpoint()
+    # breakpoint()
     for i, pfs in enumerate(pfs_per_pooling):
 
         # pca with whitening and l2 norm

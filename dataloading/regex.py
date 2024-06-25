@@ -16,12 +16,11 @@ IMG_EXTENSIONS = (
     '.png', '.PNG', '.ppm', '.PPM', '.bmp', '.BMP', '.tif', '.tiff', '.TIF', '.TIFF'
 )
 
-
 def is_image_file(filename, ext=IMG_EXTENSIONS):
     return any(filename.endswith(extension) for extension in ext)
 
-
 def make_dataset(cur_dir, rxs, extensions):
+    #breakpoint()
     assert rxs is not None, 'no regular expression is set'
     cur_dir = os.path.expanduser(cur_dir)
 

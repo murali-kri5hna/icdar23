@@ -19,7 +19,8 @@ class WriterZoo:
     datasets = {
 
         'icdar2017': {
-            'basepath': '/cluster/qy41tewa/rl-map/dataset_patch',
+            'basepath': '/cluster/qy41tewa/rl-map/dataset',
+            #'basepath': '/scratch/qy41tewa/rl-map/dataset',
             'set': {
                 'test' :  {'path': 'test/icdar2017_test_sift_patches_binarized_2kpp',
                                   'regex' : {'writer': '(\d+)', 'page': '\d+-IMG_MAX_(\d+)'}},
@@ -28,7 +29,13 @@ class WriterZoo:
                                   'regex' : {'cluster' : '(\d+)', 'writer': '\d+_(\d+)', 'page' : '\d+_\d+-IMG_MAX_(\d+)_\d+'}},
 
                 'debug' :  {'path': 'debug',
-                                  'regex' : {'writer': '(\d+)', 'page': '\d+-IMG_MAX_(\d+)'}},                
+                                  'regex' : {'writer': '(\d+)', 'page': '\d+-IMG_MAX_(\d+)'}}, 
+
+                'train_classify' :  {'path': 'classify/train',
+                                  'regex' : {'cluster' : '(\d+)', 'writer': '\d+_(\d+)', 'page' : '\d+_\d+-IMG_MAX_(\d+)_\d+'}},
+
+                'val_classify' :  {'path': 'classify/val',
+                                  'regex' : {'cluster' : '(\d+)', 'writer': '\d+_(\d+)', 'page' : '\d+_\d+-IMG_MAX_(\d+)_\d+'}},
                 
             }
         },

@@ -31,3 +31,5 @@ idxs = np.arange(0,600)
 with MultithreadedCopier(max_threads=64) as copier:
     for i in idxs:
         shutil.copytree(pages[i], f'/cluster/qy41tewa/rl-map/dataset_patch/debug/{os.path.basename(pages[i])}', copy_function=copier.copy, dirs_exist_ok = True)
+
+
