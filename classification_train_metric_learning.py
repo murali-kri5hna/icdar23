@@ -328,7 +328,7 @@ def classification_train(args):
     if args['checkpoint_netvlad']:
         print(f'''Loading NetVLAD model from {args['checkpoint_netvlad']}''')
         checkpoint = torch.load(args['checkpoint_netvlad'])
-        model.load_state_dict(checkpoint['model_state_dict'])  
+        model.load_state_dict(checkpoint['model_state_dict'])    
         model.eval() 
 
         optimizer_netvlad.load_state_dict(checkpoint['optimizer_state_dict'])   

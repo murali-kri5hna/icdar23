@@ -101,7 +101,7 @@ def train_one_epoch(model, train_ds, triplet_loss, optimizer, scheduler, epoch, 
         loss = triplet_loss(emb, l, emb, l)
         logger.log_value(f'loss', loss.item())
 
-        loss = -loss*map
+        loss = loss*(1 - map)
         logger.log_value(f'reward', loss.item())
 
         
@@ -229,6 +229,7 @@ def reward_tune(args):
         checkpoint = torch.load(args['checkpoint'])
         model.load_state_dict(checkpoint['model_state_dict'])    
         model.eval() 
+        model.classification = True
 
         optimizer.load_state_dict(checkpoint['optimizer_state_dict'])   
     else:
@@ -258,6 +259,9 @@ if __name__ == '__main__':
     args = parser.parse_args()
         
     config = load_config(args)[0]
+
+    if os.environ.get('DATAINTMP'):
+         WriterZoo.datasets[config['trainset']['dataset']]['basepath'] = '/scratch/qy41tewa/rl-map/dataset'
 
     GPU.set(args.gpuid, 400)
     cudnn.benchmark = True

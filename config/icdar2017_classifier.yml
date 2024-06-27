@@ -1,4 +1,4 @@
-^trainset : 
+trainset : 
   dataset: icdar2017
   set: train
 
@@ -26,7 +26,7 @@ optimizer_options:
   final_lr: 0.0001
   warmup_epochs : 5
 
-super_fancy_new_name: icdar2017_classifier_training_changed_fclayer1024_sampler_m32
+super_fancy_new_name: icdar2017_classifier_training_batch1024_sampler_m64
 
 model :  
     name : resnet56
@@ -44,12 +44,12 @@ train_options:
 
   loss : crossentropyloss  
   margin : 0.1
-  sampler_m : 32
+  sampler_m : 16
   length_before_new_iter: 512000
 
 eval_options : 
     pca_dim : 400
     gmp_alpha : 100
 
-test_batch_size: 512
+test_batch_size: 256
         

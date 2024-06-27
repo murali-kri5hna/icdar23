@@ -4,7 +4,6 @@ from torch import nn
 import torch.nn.functional as F
 
 from backbone.resnets import resnet56
-import argparse
 
 class Model(torch.nn.Module):
 
@@ -17,8 +16,15 @@ class Model(torch.nn.Module):
         # ([pdf](zotero://open-pdf/library/items/LCJPH7KQ?page=5&annotation=IMN2HKB6))
         self.backbone.fc = torch.nn.Identity()
         self.nv = NetVLAD(num_clusters=num_clusters, dim=dim, random=random)
+        self.classification = False
 
     def forward(self, x):
+        if self.classification:
+            emb = self.backbone(x)
+            #breakpoint()
+            #emb = emb.unsqueeze(-1).unsqueeze(-1)
+            return F.normalize(emb)
+            
         emb = self.backbone(x)                      # get residual features
         emb = emb.unsqueeze(-1).unsqueeze(-1)       # (NxD) -> (NxDx1x1)
         nv_enc = self.nv(emb)                       # encode features
@@ -89,13 +95,35 @@ class NetVLAD(nn.Module):
             vlad = F.normalize(vlad, p=2, dim=1)  # L2 normalize
 
         return vlad
+
+class MLP(nn.Module):
+    # layer_sizes[0] is the dimension of the input
+    # layer_sizes[-1] is the dimension of the output
+    def __init__(self, layer_sizes=[6400, 394], final_relu=False):
+        super().__init__()
+        layer_list = []
+        layer_sizes = [int(x) for x in layer_sizes]
+        num_layers = len(layer_sizes) - 1
+        final_relu_layer = num_layers if final_relu else num_layers - 1
+        for i in range(len(layer_sizes) - 1):
+            input_size = layer_sizes[i]
+            curr_size = layer_sizes[i + 1]
+            if i < final_relu_layer:
+                layer_list.append(nn.ReLU(inplace=False))
+            layer_list.append(nn.Linear(input_size, curr_size))
+        self.net = nn.Sequential(*layer_list)
+        self.last_linear = self.net[-1]
+
+    def forward(self, x):
+        return self.net(x)
+        
     
 class RewardtuneModelFC(torch.nn.Module):
-    def __init__(self, dim=6400, num_writers=394):
+    def __init__(self, dim=64, num_writers=394):
         super(RewardtuneModelFC, self).__init__()
         #self.fc = torch.nn.Linear(dim, num_writers)
-        self.fc1 = nn.Linear(dim, out_features=1024)  # Replace ... with the appropriate input feature size
-        self.fc2 = nn.Linear(in_features=1024, out_features=num_writers)
+        self.fc1 = nn.Linear(dim, out_features=512)  # Replace ... with the appropriate input feature size
+        self.fc2 = nn.Linear(in_features=512, out_features=num_writers)
 
         self._init_params()
         
@@ -105,8 +133,8 @@ class RewardtuneModelFC(torch.nn.Module):
         self.fc2.weight.data.normal_(0, 0.01)
         self.fc2.bias.data.fill_(0)
         
-    def forward(self, normalized_nv_enc):
-        output = F.relu(self.fc1(normalized_nv_enc))
+    def forward(self, normalized_enc):
+        output = F.relu(self.fc1(normalized_enc))
         softmax_output = F.softmax(self.fc2(output), dim=1)
         return softmax_output
 
@@ -114,7 +142,6 @@ class RewardtuneModelFC(torch.nn.Module):
     #     output = self.fc(normalized_nv_enc)
     #     softmax_output = F.softmax(output, dim=1)
     #     return softmax_output
-
     
 class RewardtuneModel(torch.nn.Module):
     def __init__(self, model, rewardtune_model_fc):
