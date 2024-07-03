@@ -41,23 +41,34 @@ class WriterZoo:
         },
 
         'icdar2013': {
-            'basepath': '/data/mpeer/resources',
+            'basepath': '/cluster/qy41tewa/rl-map/dataset/icdar19/binarized',
             'set': {
-                'test' :  {'path': 'icdar2013_test_sift_patches_binarized',
+                'test' :  {'path': 'test',
                                   'regex' : {'writer': '(\d+)', 'page': '\d+_(\d+)'}},
 
-                'train' :  {'path': 'icdar2013_train_sift_patches_1000/',
+                'train' :  {'path': 'train_icdar19',
                                   'regex' : {'cluster' : '(\d+)', 'writer': '\d+_(\d+)', 'page' : '\d+_\d+_(\d+)'}}                             
             }
         },
         
         'icdar2019': {
-            'basepath': '/data/mpeer/resources',
+            'basepath': '/cluster/qy41tewa/rl-map/dataset/icdar19/binarized',
             'set': {
-                'test' :  {'path': 'wi_comp_19_test_patches',
+                'test' :  {'path': 'test_icdar19',
                                   'regex' : {'writer': '(\d+)', 'page': '\d+_(\d+)'}},
 
-                'train' :  {'path': 'wi_comp_19_validation_patches',
+                'train' :  {'path': 'train_icdar19',
+                                  'regex' : {'cluster' : '(\d+)', 'writer': '\d+_(\d+)', 'page' : '\d+_\d+_(\d+)'}},
+            }
+        },
+
+        'icdar2019_color': {
+            'basepath': '/cluster/qy41tewa/rl-map/dataset/icdar19/color',
+            'set': {
+                'test' :  {'path': 'icdar19_test_patches',
+                                  'regex' : {'writer': '(\d+)', 'page': '\d+_(\d+)'}},
+
+                'train' :  {'path': 'icdar19_train_2000patches',
                                   'regex' : {'cluster' : '(\d+)', 'writer': '\d+_(\d+)', 'page' : '\d+_\d+_(\d+)'}},
             }
         }

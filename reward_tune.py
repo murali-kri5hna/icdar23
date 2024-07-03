@@ -24,7 +24,8 @@ from evaluators.retrieval import Retrieval
 from page_encodings import SumPooling
 
 from aug import Erosion, Dilation
-from utils.triplet_loss import TripletLoss
+from utils.triplet_loss import TripletLoss#, RewardTripletLoss
+from utils.m_n_sampler import MNSampler
 
 from backbone import resnets
 from backbone.model import Model
@@ -34,15 +35,26 @@ torch.multiprocessing.set_sharing_strategy('file_system')
 
 from main import prepare_logging, train_val_split, test, get_optimizer, validate, compute_page_features
 
-
+from visualization.cluster_plot import cluster_plot
 
 def train_one_epoch(model, train_ds, triplet_loss, optimizer, scheduler, epoch, args, logger):
 
     model.train()
     model = model.cuda()
 
-    # set up the triplet stuff
+    #breakpoint()
+    
+    # set up the triplet stuff 
+    labels = train_ds.dataset.labels
     sampler = samplers.MPerClassSampler(np.array(train_ds.dataset.labels[args['train_label']])[train_ds.indices], args['train_options']['sampler_m'], length_before_new_iter=args['train_options']['length_before_new_iter']) #len(ds))
+
+   # sampler = MNSampler(labels[args['train_label']], 
+   #                     args['train_options']['sampler_m'], 
+   #                     args['train_options']['sampler_n'], 
+   #                     labels['writer'], 
+   #                     labels['page'],
+   #                     length_before_new_iter=args['train_options']['length_before_new_iter'])
+    
     train_triplet_loader = torch.utils.data.DataLoader(train_ds, sampler=sampler, batch_size=args['train_options']['batch_size'], drop_last=True, num_workers=32)
     
     pbar = tqdm(train_triplet_loader)
@@ -53,6 +65,9 @@ def train_one_epoch(model, train_ds, triplet_loss, optimizer, scheduler, epoch, 
 
     for i, (samples, labels) in enumerate(pbar):
     # for i, (pages, writers) in enumerate(pbar):
+
+        #breakpoint()
+        
         it = iters * epoch + i
         for i, param_group in enumerate(optimizer.param_groups):
             if it > (len(scheduler) - 1):
@@ -62,13 +77,12 @@ def train_one_epoch(model, train_ds, triplet_loss, optimizer, scheduler, epoch, 
             
             if param_group.get('name', None) == 'lambda':
                 param_group['lr'] *= args['optimizer_options']['gmp_lr_factor']
-        ############################
+
         if len(labels) == 3:
             writers, pages = labels[1], labels[2]
         else:
             writers, pages = labels[0], labels[1]
 
-        ############################
         samples = samples.cuda()
         samples.requires_grad=True
 
@@ -83,7 +97,7 @@ def train_one_epoch(model, train_ds, triplet_loss, optimizer, scheduler, epoch, 
         emb = torch.nn.functional.normalize(emb) 
         feats = emb.detach().cpu().numpy()
 
-        # breakpoint()
+        #breakpoint()
         
         page_features, page_writers = compute_page_features(feats, np.array(writers), np.array(pages))
 
@@ -93,7 +107,7 @@ def train_one_epoch(model, train_ds, triplet_loss, optimizer, scheduler, epoch, 
         
         _eval = Retrieval()
         
-        # breakpoint()
+        #breakpoint()
         
         distances = _eval.calc_distances(descs, page_writers, use_precomputed_distances=False)
         map = _eval.calc_only_map_from_distances(page_writers, distances)
@@ -103,7 +117,6 @@ def train_one_epoch(model, train_ds, triplet_loss, optimizer, scheduler, epoch, 
 
         loss = loss*(1 - map)
         logger.log_value(f'reward', loss.item())
-
         
         logger.log_value(f'lr', optimizer.param_groups[0]['lr'])
 
@@ -125,12 +138,15 @@ def train(model, train_ds, val_ds, args, logger, optimizer):
     lr_schedule = const_scheduler(args['optimizer_options']['base_lr'], epochs, niter_per_ep, args['optimizer_options']['warmup_epochs'])
 
     best_epoch = -1
-    best_map = validate(model, val_ds, args)
+    #best_map = validate(model, val_ds, args)
+    best_map = -1
+    
 
     print(f'Val-mAP: {best_map}')
     logger.log_value('Val-mAP', best_map)
 
     loss = TripletLoss(margin=args['train_options']['margin'])
+    #loss = RewardTripletLoss()
     # print('Using Triplet Loss')
 
     for epoch in range(epochs):
@@ -229,16 +245,23 @@ def reward_tune(args):
         checkpoint = torch.load(args['checkpoint'])
         model.load_state_dict(checkpoint['model_state_dict'])    
         model.eval() 
-        model.classification = True
+        #model.classification = True
 
         optimizer.load_state_dict(checkpoint['optimizer_state_dict'])   
     else:
-        print('No checkpoint provided. Train model and provide checkpoint for reward finetuning.')
+        raise ValueError('No checkpoint provided. Train model and provide checkpoint for reward finetuning.')
 
-    model, optimizer = train(model, train_ds, val_ds, args, logger, optimizer)
+    if args['train']:
+        model, optimizer = train(model, train_ds, val_ds, args, logger, optimizer)
+        save_model(model, optimizer, args['train_options']['epochs'], os.path.join(logger.log_dir, 'model.pt'))
 
-    save_model(model, optimizer, args['train_options']['epochs'], os.path.join(logger.log_dir, 'model.pt'))
-    test(model, logger, args, name='Test')
+
+    if args['plot_emb']:
+        cluster_plot(model, train_ds, args, logger)
+
+    if args['test']:
+        test(model, logger, args, name='Test')
+        
     logger.finish()
 
 if __name__ == '__main__':
@@ -246,7 +269,7 @@ if __name__ == '__main__':
     logging.basicConfig(level=logging.INFO, format='%(asctime)s %(levelname)s %(message)s ')
     parser = argparse.ArgumentParser()
 
-    parser.add_argument('--config', default='config/icdar2017.yml', help='Path to the configuration file')
+    parser.add_argument('--config', default='config/icdar2019.yml', help='Path to the configuration file')
     parser.add_argument('--checkpoint', default=None, type=str, metavar='PATH',
                         help='path to latest checkpoint (default: none)')
     parser.add_argument('--no-cuda', action='store_true', default=False,
@@ -255,13 +278,20 @@ if __name__ == '__main__':
                         help='id(s) for CUDA_VISIBLE_DEVICES')
     parser.add_argument('--seed', default=2174, type=int,
                         help='seed')
+    parser.add_argument('--train', default=False,
+                        help='enables training')
+    parser.add_argument('--plot-emb', default=False,
+                        help='only plots the embeddings using checkpoint model')
+    parser.add_argument('--test', default=False,
+                        help='only test the checkpoint model')
+
 
     args = parser.parse_args()
         
     config = load_config(args)[0]
 
     if os.environ.get('DATAINTMP'):
-         WriterZoo.datasets[config['trainset']['dataset']]['basepath'] = '/scratch/qy41tewa/rl-map/dataset'
+         WriterZoo.datasets[config['trainset']['dataset']]['basepath'] = '/scratch/qy41tewa/rl-map/dataset/icdar19/color/'
 
     GPU.set(args.gpuid, 400)
     cudnn.benchmark = True

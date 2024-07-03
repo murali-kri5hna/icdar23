@@ -1,28 +1,27 @@
 trainset : 
-  dataset: icdar2017
+  dataset: icdar2019_color
   set: train
 
 testset : 
-  dataset: icdar2017
+  dataset: icdar2019_color
   set: test
 
-test: False
-train: False
-plot_emb: True
-checkpoint: /cluster/qy41tewa/rl-map/experiments/base_netvlad_model/model.pt
 
 log_dir: /cluster/qy41tewa/rl-map/experiments
 logger : wandb
-train_label : cluster
+train_label : writer
 
-use_test_as_validation: False
+test: True
+train: True
+plot_emb: False
+checkpoint: /cluster/qy41tewa/rl-map/experiments/base_netvlad_model/model.pt
 
 # only use when train on color
-grayscale : False
+grayscale : True
 
-# data_augmentation : morph
+data_augmentation : morph
 
-# base lr 5e-4 to 1e-5
+# base lr 5e-6 to 1e-6
 optimizer_options: 
   optimizer: adam 
   base_lr: 0.000001
@@ -30,7 +29,7 @@ optimizer_options:
   final_lr: 0.000001
   warmup_epochs : 3
 
-super_fancy_new_name: icdar2017_rewardtuning_cluster
+super_fancy_new_name: icdar19_color_rewardfinetuning_from_icdar17_embeddings
 
 model :  
     name : resnet56
@@ -38,7 +37,7 @@ model :
     encoding : netrvlad
 
 train_options: 
-  epochs: 20
+  epochs: 30 
   batch_size: 1024                               
   callback : early_stopping
   callback_patience : 5
@@ -46,7 +45,6 @@ train_options:
   loss : triplet  
   margin : 0.1
   sampler_m : 16
-  sampler_n : 2
   length_before_new_iter: 512000
 
 eval_options : 

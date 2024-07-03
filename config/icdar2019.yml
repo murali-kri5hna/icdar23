@@ -7,9 +7,9 @@ testset :
   set: test
 
 
-log_dir: experiments
+log_dir: /cluster/qy41tewa/rl-map/experiments
 logger : wandb
-train_label : cluster
+train_label : writer
 
 # only use when train on color
 grayscale : False

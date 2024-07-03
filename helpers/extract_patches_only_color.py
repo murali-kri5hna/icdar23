@@ -166,8 +166,8 @@ if __name__ == "__main__":
 
     assert args.win_size % 2 == 0, 'win_size must be even'
 
-    num_cores = int(multiprocessing.cpu_count() / 2)
-    num_cores = 10
+    num_cores = int(multiprocessing.cpu_count() / 2 + 2)
+    #num_cores = 10#multiprocessing.cpu_count()
     path_to_centers = ''
 
     def chunks(xs, n):

@@ -170,8 +170,8 @@ if __name__ == "__main__":
 
     assert args.win_size % 2 == 0, 'win_size must be even'
 
-    num_cores = int(multiprocessing.cpu_count() / 2)
-    num_cores = 10
+    num_cores = int(multiprocessing.cpu_count() / 2 + 2)
+    #num_cores = multiprocessing.cpu_count()
     path_to_centers = ''
 
     files = [f for f in glob.glob(args.in_dir[0] + '/**/*.*', recursive=True) if os.path.isfile(f) and is_image_file(f)]

@@ -4,8 +4,36 @@ from pytorch_metric_learning.utils import common_functions
 from pytorch_metric_learning.samplers import MPerClassSampler
 
 class MNSampler(MPerClassSampler):
-    def __init__(self, labels, m, n, batch_size, writer_labels, page_labels, **kwargs):
-        super().__init__(labels, m, batch_size, **kwargs)
+    """
+    MNSampler is an extension of the MPerClassSampler from the pytorch-metric-learning 
+    library. It ensures that each batch contains a specified number of elements per 
+    cluster and a minimum number of pages per author.
+
+    Parameters:
+    - labels (list or array): The cluster labels for each data point in the dataset.
+    - m (int): The number of elements to sample from each cluster.
+    - n (int): The minimum number of pages to sample from each author.
+    - batch_size (int): The desired batch size.
+    - writer_labels (list or array): The writer labels for each data point.
+    - page_labels (list or array): The page labels for each data point.
+
+    Example Usage:
+    labels = [...]  # Cluster labels
+    writer_labels = [...]  # Writer labels
+    page_labels = [...]  # Page labels
+    m = 5  # Elements per cluster
+    n = 2  # Minimum pages per author
+    batch_size = 32  # Batch size
+
+    custom_sampler = CustomSampler(labels, m, n, batch_size, writer_labels, page_labels)
+
+    from torch.utils.data import DataLoader
+    data_loader = DataLoader(your_dataset, batch_size=batch_size, sampler=custom_sampler)
+    """
+    def __init__(self, labels, m, n, writer_labels, page_labels, batch_size=None, length_before_new_iter=100000, **kwargs):
+        super().__init__(labels, m, length_before_new_iter=length_before_new_iter, **kwargs)
+        # To avoid clash of labels with MPerClassSampler where its defined as a dict
+        self.labels_list=labels
         self.writer_labels = writer_labels
         self.page_labels = page_labels
         self.n = n
@@ -47,7 +75,7 @@ class MNSampler(MPerClassSampler):
         final_indices = []
         clusters = defaultdict(list)
         for idx in sampled_indices:
-            cluster = self.labels[idx]
+            cluster = self.labels_list[idx]
             clusters[cluster].append(idx)
         
         for cluster, cluster_indices in clusters.items():
@@ -56,11 +84,11 @@ class MNSampler(MPerClassSampler):
             else:
                 final_indices.extend(cluster_indices)
         
-        random.shuffle(final_indices)
+        #random.shuffle(final_indices)
         return iter(final_indices)
 
     def __len__(self):
-        return len(self.labels)
+        return len(self.labels_list)
 
 # Example usage
 # labels = [...]  # Your cluster labels

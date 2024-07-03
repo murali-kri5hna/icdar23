@@ -37,7 +37,7 @@ class Encoding:
 
 
 class SumPooling(Encoding):
-
+    
     def encode(self, pfs):
         # pfs expected to be a list
         pfs = np.array([np.sum(self.sample(pf), axis=0) for pf in pfs])
