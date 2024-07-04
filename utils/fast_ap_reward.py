@@ -57,15 +57,25 @@ class FastAPReward(BaseMetricLossFunction):
             FastAP[safe_H] = h_pos_product[safe_H] / total_hist[safe_H]
             FastAP = torch.sum(FastAP, dim=1)
             FastAP = FastAP[safe_N] / N_pos[safe_N]
-            FastAP = FastAP * miner_weights[safe_N]
+            FastAP = (1 - FastAP) * miner_weights[safe_N]
             return {
                 "loss": {
-                    "losses": -FastAP,
+                    "losses": FastAP,
                     "indices": torch.where(safe_N)[0],
                     "reduction_type": "element",
                 }
             }
         return self.zero_losses()
+    
+    def compute_reward(self, embeddings, labels, indices_tuple=None, ref_emb=None, ref_labels=None):
+        c_f.check_shapes(embeddings, labels)
+        if labels is not None:
+            labels = c_f.to_device(labels, embeddings)
+        ref_emb, ref_labels = c_f.set_ref_emb(embeddings, labels, ref_emb, ref_labels)
+        loss_dict = self.compute_loss(
+            embeddings, labels, indices_tuple, ref_emb, ref_labels
+        )
+        return loss_dict["loss"]["losses"].detach().cpu().numpy()
     
     def get_default_distance(self):
         return LpDistance(power=2)
