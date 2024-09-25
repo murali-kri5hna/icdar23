@@ -3,17 +3,13 @@ import torch
 from torch import nn
 import torch.nn.functional as F
 
-from backbone.resnets import resnet56
+from backbone.resnets import resnet56, resnet20
 
 class Model(torch.nn.Module):
 
     def __init__(self, backbone=resnet56(), num_clusters=100, dim=64, random=False):
         super(Model, self).__init__()
         self.backbone = backbone
-        # “The last fully connected layer of the network is dropped, and the output of the global 
-        # averaging pooling layer of dimension (64, 1, 1) is used” 
-        # ([Peer et al., 2023, p. 5](zotero://select/library/items/73PPT7VX)) 
-        # ([pdf](zotero://open-pdf/library/items/LCJPH7KQ?page=5&annotation=IMN2HKB6))
         self.backbone.fc = torch.nn.Identity()
         self.nv = NetVLAD(num_clusters=num_clusters, dim=dim, random=random)
         self.classification = False
@@ -29,6 +25,27 @@ class Model(torch.nn.Module):
         emb = emb.unsqueeze(-1).unsqueeze(-1)       # (NxD) -> (NxDx1x1)
         nv_enc = self.nv(emb)                       # encode features
         return F.normalize(nv_enc)                  # final normalization
+
+class WriterResModel(torch.nn.Module):
+
+    def __init__(self, backbone=resnet20(), num_clusters=100, dim=64, random=False):
+        super(WriterResModel, self).__init__()
+        self.backbone = backbone
+        self.backbone.fc = torch.nn.Identity()
+        self.nv = NetVLAD(num_clusters=num_clusters, dim=dim, random=random)
+        self.classification = False
+
+    def forward(self, x):
+        if self.classification:
+            x = x.unsqueeze(-1).unsqueeze(-1)
+            emb = self.backbone(x)
+            return F.normalize(emb)
+            
+        x = x.unsqueeze(-1).unsqueeze(-1)
+        emb = self.backbone(x)                      # get residual features
+        emb = emb.unsqueeze(-1).unsqueeze(-1)       # (NxD) -> (NxDx1x1)
+        nv_enc = self.nv(emb)                       # encode features
+     
 
 class NetVLAD(nn.Module):
     """Net(R)VLAD layer implementation"""
@@ -94,6 +111,8 @@ class NetVLAD(nn.Module):
         if not self.random:
             vlad = F.normalize(vlad, p=2, dim=1)  # L2 normalize
 
+        #vlad = F.normalize(vlad, p=2, dim=1)
+
         return vlad
 
 class MLP(nn.Module):
@@ -117,31 +136,35 @@ class MLP(nn.Module):
     def forward(self, x):
         return self.net(x)
         
-    
-class RewardtuneModelFC(torch.nn.Module):
-    def __init__(self, dim=64, num_writers=394):
-        super(RewardtuneModelFC, self).__init__()
+
+class WriterModelFC(torch.nn.Module):
+    def __init__(self, features=512, num_clusters=100, dim=64, random=False, dropout_prob=0.5):
+        super(WriterModelFC, self).__init__()
         #self.fc = torch.nn.Linear(dim, num_writers)
-        self.fc1 = nn.Linear(dim, out_features=512)  # Replace ... with the appropriate input feature size
-        self.fc2 = nn.Linear(in_features=512, out_features=num_writers)
+        self.fc1 = nn.Linear(features, out_features=dim)  # Replace ... with the appropriate input feature size
+        #self.fc2 = nn.Linear(in_features=1024, out_features=512)
+        #self.fc3 = nn.Linear(in_features=512, out_features=dim)
+        #self.dropout1 = nn.Dropout(p=dropout_prob)
+        self.nv = NetVLAD(num_clusters=num_clusters, dim=dim, random=random)
 
         self._init_params()
         
     def _init_params(self):
-        self.fc1.weight.data.normal_(0, 0.01)
+        #self.fc1.weight.data.fill_(1.0) #0.01)
+        torch.nn.init.eye_(self.fc1.weight)
         self.fc1.bias.data.fill_(0)
-        self.fc2.weight.data.normal_(0, 0.01)
-        self.fc2.bias.data.fill_(0)
-        
+        #self.fc2.weight.data.normal_(0, 0.01)
+        #self.fc2.bias.data.fill_(0)
+       # 
     def forward(self, normalized_enc):
-        output = F.relu(self.fc1(normalized_enc))
-        softmax_output = F.softmax(self.fc2(output), dim=1)
-        return softmax_output
-
-    # def forward(self, normalized_nv_enc):
-    #     output = self.fc(normalized_nv_enc)
-    #     softmax_output = F.softmax(output, dim=1)
-    #     return softmax_output
+        #writer_enc = F.relu(self.fc1(normalized_enc))
+        #writer_enc = self.dropout1(writer_enc)
+        #writer_enc = self.fc2(writer_enc)
+        #writer_enc = self.dropout1(writer_enc)
+        writer_enc = self.fc1(normalized_enc)
+        writer_enc = writer_enc.unsqueeze(-1).unsqueeze(-1)       # (NxD) -> (NxDx1x1)
+        nv_writer_enc = self.nv(writer_enc)                       # encode features
+        return F.normalize(nv_writer_enc) 
     
 class RewardtuneModel(torch.nn.Module):
     def __init__(self, model, rewardtune_model_fc):

@@ -1,0 +1,66 @@
+trainset : 
+  dataset: icdar2017
+  set: train
+
+testset : 
+  dataset: icdar2017
+  set: test
+
+
+log_dir: /cluster/qy41tewa/rl-map/experiments
+logger : wandb
+train_label : cluster
+
+test: True
+train: True
+plot_emb: False
+#checkpoint: /cluster/qy41tewa/rl-map/experiments/base_netvlad_model/model.pt
+
+# Finetuned icdar17 model for icdar19 color
+#checkpoint: /cluster/qy41tewa/rl-map/experiments/icdar19_color_rewardfinetuning_from_icdar17_embeddings-2024-07-03-10-34/model.pt 
+
+# only use when train on color
+grayscale : False
+
+data_augmentation : morph
+
+# base lr 5e-6 to 1e-6
+optimizer_options: 
+  optimizer: adam 
+  base_lr: 0.0001 
+  wd: 0 
+  final_lr: 0.00001
+  warmup_epochs : 5
+
+#super_fancy_new_name: icdar19_color_APrewardfinetuning_from_icdar17_embeddings
+#super_fancy_new_name: APlossfinetuning_icdar17
+#super_fancy_new_name: APrewardfinetuning_icdar17
+#super_fancy_new_name: SmoothAPloss_icdar17_1024_0.01_8
+super_fancy_new_name: FastAPloss_icdar17_1024_8
+
+model :  
+    name : resnet56
+    num_clusters : 100
+    encoding : netrvlad
+
+train_options: 
+  epochs: 30 
+  batch_size: 512  # 512, 1024, 2048                   
+  callback : early_stopping
+  callback_patience : 5
+
+  #loss : triplet #fast_ap_loss, smooth_ap_loss
+  #loss: fastAP
+  #loss: smoothAP
+  loss: smoothAP_brown
+  sigmoid_temperature : 0.01
+  margin : 0.1
+  sampler_m : 8
+  length_before_new_iter: 512000
+
+eval_options : 
+    pca_dim : 400
+    gmp_alpha : 100
+
+test_batch_size: 512
+        

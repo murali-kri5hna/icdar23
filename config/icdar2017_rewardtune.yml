@@ -1,0 +1,151 @@
+#trainset : 
+#  dataset: icdar2019_color
+#  set: train
+
+#testset : 
+#  dataset: icdar2019_color
+#  set: test #_debug
+
+trainset : 
+  dataset: icdar2017
+  set: train
+
+testset : 
+  dataset: icdar2017
+  set: test
+
+
+log_dir: /cluster/qy41tewa/rl-map/experiments
+logger : wandb
+
+train_label : cluster #cluster
+reward_label: writer 
+
+test: True
+rerank: True
+train: True
+reward_tuning: True
+
+plot_emb: False
+addWriterEmbeddingsToTable: True
+save_page_features: False
+
+add_np_embeddingsto_table: False
+test_with_np_embeddings: False
+
+checkpoint: /cluster/qy41tewa/rl-map/experiments/Triplet17_5k_1024_16-2024-07-23-14-50-48/model.pt
+
+#checkpoint: /cluster/qy41tewa/rl-map/experiments/SmoothAPlossBrown_icdar17_256_0.01_4-2024-07-12-08-31/model.pt
+#checkpoint: /cluster/qy41tewa/rl-map/experiments/SmoothAPlossBrown_icdar17_512_0.01_8-2024-07-12-08-31/model.pt
+
+#checkpoint: /cluster/qy41tewa/rl-map/experiments/icdar2017_training_5000p-2024-07-19-01-29/model.pt
+#checkpoint: /cluster/qy41tewa/rl-map/experiments/Triplet17_5k_1024_16_cluster-2024-07-22-23-25-42/model.pt
+#np_embeddings_path: /cluster/qy41tewa/rl-map/experiments/icdar2017_test_5000p-2024-07-20-07-36/pfs_tf.npz
+
+# Finetuned icdar17 model for icdar19 color
+#checkpoint: /cluster/qy41tewa/rl-map/experiments/icdar19_color_rewardfinetuning_from_icdar17_embeddings-2024-07-03-10-34/model.pt 
+
+# only use when train on color
+grayscale : False
+
+data_augmentation : morph
+
+# base lr 5e-6 to 1e-6
+optimizer_options: 
+  optimizer: adam 
+  base_lr: 0.00001 #0.0001, 0.000001
+  wd: 0 
+  final_lr: 0.000001 #0.00001, 0.000001
+  warmup_epochs : 2 #4. 5
+
+  scheduler: const #cosine, const
+
+#super_fancy_new_name: triplet_loss_model_reranking
+#super_fancy_new_name: APlossfinetuning_icdar17
+#super_fancy_new_name: APrewardfinetuning_icdar17
+#super_fancy_new_name: Debug_SmoothAPlossBrown_icdar17_256_0.01_4_Reranking
+#super_fancy_new_name: Debug_plotting_SmoothAP
+#super_fancy_new_name: bbMapLoss17_5k_1024_16_tune
+#super_fancy_new_name: TripletTriplet17_5k_512_8_tune
+#super_fancy_new_name: RewardTriplet17_5k_1024_32_4_tune
+#super_fancy_new_name: SmoothAPTriplet17_5k_512_8_tune
+#super_fancy_new_name: RankedListTriplet17_5k_128_8_tune
+#super_fancy_new_name: bbMapListTriplet17_5k_512_8_tune
+#super_fancy_new_name: fastAPListTriplet17_5k_512_8_tune
+#super_fancy_new_name: SmoothAPlossB17_512_0.01_4 #_Reranking
+#super_fancy_new_name: TripRwde5_17_5k_1024_16_writer
+super_fancy_new_name: tuning_pml17_5k_1024_16
+
+
+model :  
+    name : resnet56
+    num_clusters : 100
+    encoding : netrvlad
+
+train_options: 
+    epochs: 30 #30
+    batch_size: 128  # 128, 256, 512, 1024, 2048                   
+    callback : early_stopping
+    callback_patience : 5 #5
+    accumulation_steps: 128
+    
+    #loss : triplet #fastAP, smooth_ap_loss, smoothAP_brown, rewardTriplet, RankedListLoss, bbMapLoss, RankedListReward, triplet_pml
+    loss: triplet
+    
+    #bbMapLoss parameters
+    lambda_val: 0.5
+    bb_margin: 0.01
+    interclass_coef: 0.7 #0.5, 0.7
+    batch_memory: 5
+    
+    reward_scale: 5
+    
+    sigmoid_temperature : 0.01
+    
+    margin : 0.1 #0.1
+    sampler_m : 8 #32
+    m_label: writer
+    sampler_n : 4
+    n_label: cluster
+    length_before_new_iter: 512000 #512000, 256000
+
+
+model_writer:    
+    name : resnet20
+    num_clusters : 10
+    encoding : netrvlad
+
+train_writer: False
+train_options_writer:
+    epochs: 30 #30
+    batch_size: 1024  # 128, 256, 512, 1024, 2048                   
+    callback : early_stopping
+    callback_patience : 5 
+    
+    #loss : triplet #fastAP, smooth_ap_loss, smoothAP_brown, rewardTriplet, RankedListLoss, bbMapLoss, RankedListReward
+    loss: RankedListLoss
+    
+    #bbMapLoss parameters
+    lambda_val: 0.5
+    bb_margin: 0.1
+    interclass_coef: 0.7 #0.5, 0.7
+    batch_memory: 5
+
+    num_bins: 6400
+    
+    reward_scale: 5
+    
+    sigmoid_temperature : 0.01
+    
+    margin : 0.1 #0.1
+    sampler_m : 16 #32
+    sampler_n : 8
+    length_before_new_iter: 512000 #512000, 256000
+    
+
+eval_options : 
+    pca_dim : 400
+    gmp_alpha : 100
+
+test_batch_size: 512
+        

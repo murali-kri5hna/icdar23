@@ -25,10 +25,10 @@ class WriterZoo:
                 'test' :  {'path': 'test/icdar2017_test_sift_patches_binarized_2kpp',
                                   'regex' : {'writer': '(\d+)', 'page': '\d+-IMG_MAX_(\d+)'}},
 
-                'train' :  {'path': 'train/icdar2017_train_sift_patches_binarized_1000',
+                'train' :  {'path': 'train/icdar2017_train_sift_patches_binarized_5000',
                                   'regex' : {'cluster' : '(\d+)', 'writer': '\d+_(\d+)', 'page' : '\d+_\d+-IMG_MAX_(\d+)_\d+'}},
 
-                'debug' :  {'path': 'debug',
+                'test_debug' :  {'path': 'test_debug/icdar2017_test_sift_patches_binarized_2kpp',
                                   'regex' : {'writer': '(\d+)', 'page': '\d+-IMG_MAX_(\d+)'}}, 
 
                 'train_classify' :  {'path': 'classify/train',

@@ -1,0 +1,78 @@
+trainset : 
+  dataset: icdar2017
+  set: train
+
+testset : 
+  dataset: icdar2017
+  set: test
+
+
+log_dir: /cluster/qy41tewa/rl-map/experiments
+logger : wandb
+train_label : writer
+addWriterEmbeddingsToTable: True
+add_np_embeddingsto_table: False
+rerank: True
+test: False
+train: True
+test_with_np_embeddings: False
+
+use_test_as_validation: False
+
+# only use when train on color
+grayscale : False
+
+data_augmentation : morph
+
+# base lr 5e-4 to 1e-5
+optimizer_options: 
+  optimizer: adam 
+  base_lr: 0.0001 
+  wd: 0 
+  final_lr: 0.00001
+  warmup_epochs : 10
+
+  scheduler: cosine #cosine, const
+
+super_fancy_new_name: triplet_pml2017_writer_tr
+#checkpoint: /cluster/qy41tewa/rl-map/experiments/icdar2017_training_5000p-2024-07-19-01-29/model.pt
+checkpoint: /cluster/qy41tewa/rl-map/experiments/Triplet17_5k_1024_16-2024-07-23-14-50-48/model.pt
+
+np_embeddings_path: /cluster/qy41tewa/rl-map/experiments/TripRwde5_17_5k_1024_16_writer-2024-07-23-22-44/train_ds_pfs_tf.npz
+
+model :  
+    name : resnet32 #resnet56
+    num_clusters : 100 #100
+    encoding : netrvlad #netrvlad
+
+train_options: 
+    epochs: 100 
+    batch_size: 33    #126, 258, 512                            
+    callback : early_stopping
+    callback_patience : 100
+
+    #loss : triplet #fastAP, smooth_ap_loss, smoothAP_brown, rewardTriplet, RankedListLoss, bbMapLoss, RankedListReward, triplet_pml
+    loss : triplet_pml
+    
+    lambda_val: 0.5
+    bb_margin: 0.1
+    interclass_coef: 0.7 #0.5, 0.7
+    batch_memory: 10
+    
+    reward_scale: 5
+    
+    sigmoid_temperature : 0.01
+    
+    margin : 0.05 #0.1
+    
+    sampler_m : 3 #32
+    
+    sampler_n : 8
+    length_before_new_iter: 512000 
+
+eval_options : 
+    pca_dim : 400
+    gmp_alpha : 100
+
+test_batch_size: 512
+        

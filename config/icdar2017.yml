@@ -10,6 +10,11 @@ testset :
 log_dir: /cluster/qy41tewa/rl-map/experiments
 logger : wandb
 train_label : cluster
+addWriterEmbeddingsToTable: True
+add_np_embeddingsto_table: False
+rerank: True
+only_test: True
+test_with_np_embeddings: False
 
 use_test_as_validation: False
 
@@ -26,12 +31,15 @@ optimizer_options:
   final_lr: 0.00001
   warmup_epochs : 5
 
-super_fancy_new_name: icdar2017_training
+  scheduler: const #cosine
+
+super_fancy_new_name: icdar2017_test_5000p
+#checkpoint: /cluster/qy41tewa/rl-map/experiments/icdar2017_training_5000p-2024-07-19-01-29/model.pt
 
 model :  
     name : resnet56
     num_clusters : 100
-    encoding : netrvlad
+    encoding : netvlad #netrvlad
 
 train_options: 
   epochs: 30 

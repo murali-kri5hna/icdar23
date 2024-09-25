@@ -21,6 +21,7 @@ from dataloading.regex import pil_loader
 
 from evaluators.retrieval import Retrieval
 from page_encodings import SumPooling, GMP, MaxPooling, LSEPooling
+from reranking import sgr
 
 from aug import Erosion, Dilation
 from utils.triplet_loss import TripletLoss
@@ -28,7 +29,9 @@ from utils.triplet_loss import TripletLoss
 from backbone import resnets
 from backbone.model import Model
 
-import torch.multiprocessing
+from visualization.data_table import addtoTable
+
+import multiprocessing
 torch.multiprocessing.set_sharing_strategy('file_system')
 
 
@@ -87,7 +90,7 @@ def encode_per_class(model, args, poolings=[]):
         idx = np.where((np_writer == w) & (np_page == p))[0]
         fps = [srcs[i] for i in idx]
         ds = FilepathImageDataset(fps, pil_loader, transform)
-        loader =  torch.utils.data.DataLoader(ds, num_workers=4, batch_size=args['test_batch_size'])
+        loader =  torch.utils.data.DataLoader(ds, batch_size=args['test_batch_size'], num_workers=4)
 
         feats = []
         for img in loader:
@@ -117,7 +120,10 @@ def inference(model, ds, args):
     '''
 
     model.eval()
-    loader = torch.utils.data.DataLoader(ds, num_workers=4, batch_size=args['test_batch_size'])
+    
+    # breakpoint()
+    
+    loader = torch.utils.data.DataLoader(ds, batch_size=args['test_batch_size'], num_workers=4)
 
     feats = []
     pages = []
@@ -151,18 +157,126 @@ def test(model, logger, args, name='Test'):
     sumps.append(SumPooling('l2', pn_alpha=0.4))
     poolings.append('SumPooling-PN0p4')
 
-    # extract the global page descriptors
-    pfs_per_pooling, writer = encode_per_class(model, args, poolings=sumps)
-
     best_map = -1
     best_top1 = -1
     best_pooling = ''
 
     table = []
     columns = ['Pooling', 'mAP', 'Top1']
-    # breakpoint()
-    for i, pfs in enumerate(pfs_per_pooling):
+    
+    #breakpoint()
+    
+    if args['test_with_np_embeddings']:
+        loaded_fs = np.load(f'''{args['np_embeddings_path']}''')
+        pfs_tf = loaded_fs['pfs_tf']
+        writer = loaded_fs['writer']
 
+        k = 1
+        layer = 1
+        
+        print(f'Reranking...')
+        pfs_tf_rerank = sgr.sgr_reranking(torch.tensor(pfs_tf), k=k, layer=layer, gamma=0.4)[0]
+
+        if args['addWriterEmbeddingsToTable']:
+            addtoTable(f'{poolings[0]}_features', pfs_tf, writer, args, logger, num_writers=720)
+            addtoTable(f'{poolings[0]}_features_reranked_k{k}_layer{layer}', pfs_tf_rerank, writer, args, logger, num_writers=720)
+
+        _eval = Retrieval()
+        print(f'Calculate mAP..')
+
+        res, _ = _eval.eval(pfs_tf, writer)
+        res_rerank, _ = _eval.eval(pfs_tf_rerank, writer)
+
+        pca_dim = 512
+
+        p = f'{pca_dim}' if pca_dim != -1 else 'full'
+        meanavp = res['map']
+        meanavp_rerank = res_rerank['map']
+
+        if meanavp > best_map:
+            best_map = meanavp
+            best_top1 = res['top1']
+            best_pooling = f'{poolings[0]}-{p}'
+            #pk.dump(pca, open(os.path.join(logger.log_dir, 'pca.pkl'), "wb"))
+            
+        table.append([f'{poolings[0]}-{p}', meanavp, res['top1']])
+        table.append([f'{poolings[0]}-{p}-reranking', meanavp_rerank, res_rerank['top1']])
+        print(f'{poolings[0]}-{p}-{name} MAP: {meanavp}')
+        print(f'''{poolings[0]}-{p}-{name} Top-1: {res['top1']}''')
+        print(f'{poolings[0]}-{p}-{name}-rerank MAP: {meanavp_rerank}')
+        print(f'''{poolings[0]}-{p}-{name}-rerank-k{k}_l{layer} Top-1: {res_rerank['top1']}''')
+        
+
+    else:
+        # extract the global page descriptors
+        pfs_per_pooling, writer = encode_per_class(model, args, poolings=sumps)
+        
+        for i, pfs in enumerate(pfs_per_pooling):
+            # pca with whitening and l2 norm
+            for pca_dim in [512]:
+    
+                if pca_dim != -1:
+                    pca_dim = min(min(pfs.shape), pca_dim)
+                    print(f'Fitting PCA with shape {pca_dim}')
+    
+                    pca = PCA(pca_dim, whiten=True)
+                    pfs_tf = pca.fit_transform(pfs)
+                    pfs_tf = normalize(pfs_tf, axis=1)
+                else:
+                    pfs_tf = pfs
+    
+                if args['addWriterEmbeddingsToTable']:
+                    addtoTable(f'{poolings[i]}_features', pfs_tf, writer, args, logger, num_writers=720)
+
+            print(f'Fitting PCA done')
+
+            # breakpoint()
+            np.savez(os.path.join(logger.log_dir, 'pfs_tf.npz'), pfs_tf=pfs_tf, writer=writer) #_{name['loss']}_{name['batch_size']}_{name['sampler_m']}.npz"), pfs_tf=pfs_tf, writer=writer)
+            print(f'Reranking...')
+            pfs_tf_rerank = sgr.sgr_reranking(torch.tensor(pfs_tf), k=1, layer=1, gamma=0.4)[0]
+
+            if args['addWriterEmbeddingsToTable']:
+                addtoTable(f'{poolings[i]}_features_reranked', pfs_tf_rerank, writer, args, logger, num_writers=720)
+            
+                    
+
+            _eval = Retrieval()
+            print(f'Calculate mAP..')
+
+            res, _ = _eval.eval(pfs_tf, writer)
+            res_rerank, _ = _eval.eval(pfs_tf_rerank, writer)
+
+            p = f'{pca_dim}' if pca_dim != -1 else 'full'
+            meanavp = res['map']
+            meanavp_rerank = res_rerank['map']
+
+            if meanavp > best_map:
+                best_map = meanavp
+                best_top1 = res['top1']
+                best_pooling = f'{poolings[i]}-{p}'
+                pk.dump(pca, open(os.path.join(logger.log_dir, 'pca.pkl'), "wb"))
+                
+            table.append([f'{poolings[i]}-{p}', meanavp, res['top1']])
+            table.append([f'{poolings[i]}-{p}-reranking', meanavp_rerank, res_rerank['top1']])
+            print(f'{poolings[i]}-{p}-{name} MAP: {meanavp}')
+            print(f'''{poolings[i]}-{p}-{name} Top-1: {res['top1']}''')
+            print(f'{poolings[i]}-{p}-{name}-rerank MAP: {meanavp_rerank}')
+            print(f'''{poolings[i]}-{p}-{name}-rerank Top-1: {res_rerank['top1']}''')
+
+    logger.log_table(table, 'Results', columns)
+    logger.log_value(f'Best-mAP', best_map)
+    logger.log_value(f'Best-Top1', best_top1)
+    print(f'Best-Pooling: {best_pooling}')
+
+def save_page_features(model, logger, args, name='Test'):
+    sumps, poolings = [], []
+    sumps.append(SumPooling('l2', pn_alpha=0.4))
+
+    # extract the global page descriptors
+    pfs_per_pooling, writer = encode_per_class(model, args, poolings=sumps)
+    
+    for i, pfs in enumerate(pfs_per_pooling):
+        np.savez(os.path.join(logger.log_dir, 'train_ds_pfs_pre_pca.npz'), pfs_tf=pfs_tf, writer=writer) 
         # pca with whitening and l2 norm
         for pca_dim in [512]:
 
@@ -176,29 +290,10 @@ def test(model, logger, args, name='Test'):
             else:
                 pfs_tf = pfs
 
-            print(f'Fitting PCA done')
-            _eval = Retrieval()
-            print(f'Calculate mAP..')
+        print(f'Fitting PCA done')
 
-            res, _ = _eval.eval(pfs_tf, writer)
-
-            p = f'{pca_dim}' if pca_dim != -1 else 'full'
-            meanavp = res['map']
-
-            if meanavp > best_map:
-                best_map = meanavp
-                best_top1 = res['top1']
-                best_pooling = f'{poolings[i]}-{p}'
-                pk.dump(pca, open(os.path.join(logger.log_dir, 'pca.pkl'), "wb"))
-                
-            table.append([f'{poolings[i]}-{p}', meanavp, res['top1']])
-            print(f'{poolings[i]}-{p}-{name} MAP: {meanavp}')
-            print(f'''{poolings[i]}-{p}-{name} Top-1: {res['top1']}''')
-
-    logger.log_table(table, 'Results', columns)
-    logger.log_value(f'Best-mAP', best_map)
-    logger.log_value(f'Best-Top1', best_top1)
-    print(f'Best-Pooling: {best_pooling}')
+        np.savez(os.path.join(logger.log_dir, 'train_ds_pfs_post_pca.npz'), pfs_tf=pfs_tf, writer=writer) 
+          
 
 ###########
 
@@ -265,6 +360,7 @@ def train_one_epoch(model, train_ds, triplet_loss, optimizer, scheduler, epoch, 
         logger.log_value(f'lr', optimizer.param_groups[0]['lr'])
 
         # compute gradient and update weights
+        
         optimizer.zero_grad()
         loss.backward()
         torch.nn.utils.clip_grad_norm_(model.parameters(), 2)
@@ -347,6 +443,20 @@ def train_val_split(dataset, prop = 0.9):
 
     return train, val
 
+def add_np_embeddingsto_table(args):
+    #loaded_fs = np.load('/cluster/qy41tewa/rl-map/dataset/pfs_tf_smoothAP_256.npz')
+    loaded_fs = np.load(f'''args['np_embeddings_path']''')
+    pfs_tf = loaded_fs['pfs_tf']
+    writer = loaded_fs['writer']
+    addtoTable(f"features", pfs_tf, writer, args, logger, num_writers=720)
+    
+    if args['rerank']:
+        print(f'Reranking...')
+        pfs_tf_rerank = sgr.sgr_reranking(torch.tensor(pfs_tf), k=1, layer=1, gamma=0.4)[0]
+        addtoTable(f"features_reranked", pfs_tf_rerank, writer, args, logger, num_writers=720)
+        
+
+
 def main(args):
     logger = prepare_logging(args)
     logger.update_config(args)
@@ -366,48 +476,49 @@ def main(args):
     model.train()
     model = model.cuda()
 
-    tfs = []
-   
-    if args.get('grayscale', None):
-        tfs.extend([
-            transforms.ToTensor(),
-            transforms.Grayscale(num_output_channels=3)
-        ])
-    else:
-        tfs.append(transforms.ToTensor())
-
-    if args.get('data_augmentation', None) == 'morph':
-        tfs.extend([transforms.RandomApply(
-            [Erosion()],
-            p=0.3
-        ),
-        transforms.RandomApply(
-            [Dilation()],
-            p=0.3
-        )])
-
-    transform = transforms.Compose(tfs)
-
-    train_dataset = None
-    if args['trainset']:
-        d = WriterZoo.get(**args['trainset'])
-        train_dataset = d.TransformImages(transform=transform).SelectLabels(label_names=['cluster', 'writer', 'page'])
-    
-    if args.get('use_test_as_validation', False):
-        val_ds = WriterZoo.get(**args['testset'])
+    if not args['only_test']:
+        tfs = []
+       
         if args.get('grayscale', None):
-            test_transform = transforms.Compose([
+            tfs.extend([
                 transforms.ToTensor(),
                 transforms.Grayscale(num_output_channels=3)
             ])
         else:
-            test_transform = transforms.ToTensor()
-        val_ds = val_ds.TransformImages(transform=test_transform).SelectLabels(label_names=['writer', 'page'])
-
-        train_ds = torch.utils.data.Subset(train_dataset, range(len(train_dataset)))
-        val_ds = torch.utils.data.Subset(val_ds, range(len(val_ds)))
-    else:
-        train_ds, val_ds = train_val_split(train_dataset)
+            tfs.append(transforms.ToTensor())
+    
+        if args.get('data_augmentation', None) == 'morph':
+            tfs.extend([transforms.RandomApply(
+                [Erosion()],
+                p=0.3
+            ),
+            transforms.RandomApply(
+                [Dilation()],
+                p=0.3
+            )])
+    
+        transform = transforms.Compose(tfs)
+    
+        train_dataset = None
+        if args['trainset'] and not args['only_test']:
+            d = WriterZoo.get(**args['trainset'])
+            train_dataset = d.TransformImages(transform=transform).SelectLabels(label_names=['cluster', 'writer', 'page'])
+        
+            if args.get('use_test_as_validation', False):
+                val_ds = WriterZoo.get(**args['testset'])
+                if args.get('grayscale', None):
+                    test_transform = transforms.Compose([
+                        transforms.ToTensor(),
+                        transforms.Grayscale(num_output_channels=3)
+                    ])
+                else:
+                    test_transform = transforms.ToTensor()
+                val_ds = val_ds.TransformImages(transform=test_transform).SelectLabels(label_names=['writer', 'page'])
+        
+                train_ds = torch.utils.data.Subset(train_dataset, range(len(train_dataset)))
+                val_ds = torch.utils.data.Subset(val_ds, range(len(val_ds)))
+            else:
+                train_ds, val_ds = train_val_split(train_dataset)
 
     optimizer = get_optimizer(args, model)
 
@@ -421,6 +532,10 @@ def main(args):
 
     if not args['only_test']:
         model, optimizer = train(model, train_ds, val_ds, args, logger, optimizer)
+
+    if args['add_np_embeddingsto_table']:
+        add_np_embeddingsto_table(args)
+        
 
     # testing
     save_model(model, optimizer, args['train_options']['epochs'], os.path.join(logger.log_dir, 'model.pt'))
@@ -446,7 +561,7 @@ if __name__ == '__main__':
                         help='seed')
 
     args = parser.parse_args()
-        
+
     config = load_config(args)[0]
 
     GPU.set(args.gpuid, 400)

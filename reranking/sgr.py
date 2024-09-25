@@ -1,4 +1,5 @@
 import torch
+from tqdm import tqdm
 
 def build_adjacency_matrix(init_rank, S, gamma=0.5):
     A = torch.eye(init_rank.shape[0])
@@ -8,7 +9,7 @@ def build_adjacency_matrix(init_rank, S, gamma=0.5):
 
 def gnn_propagate(A, S, r_k2):
     A_ = torch.zeros(A.shape)
-    for i in range(A.shape[0]):
+    for i in tqdm(range(A.shape[0]), 'Re-ranking'):
         hi =  A[i, :]
         k2nn = r_k2[i, 1:]
         hi += torch.sum(torch.mul(S[i, k2nn], A[:, k2nn]), dim=-1)
@@ -16,7 +17,7 @@ def gnn_propagate(A, S, r_k2):
 
     return A_
 
-def sgr_reranking(X, k, layer=2, gamma=0.5):
+def sgr_reranking(X, k=2, layer=1, gamma=0.4):
 
     S = torch.mm(X, X.t())
     del X

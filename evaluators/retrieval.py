@@ -52,12 +52,12 @@ class Retrieval:
             assert w_new.shape == weights.shape, 'weight matrix does not have the same shape'
             return w_new
 
-        logging.info('building up NN-Classifier')
-        neigh = KNeighborsClassifier(n_neighbors=1 + 1, n_jobs=15,
-                                     weights=calc_weights)  # 1 + 1 because first element has always 0 distance
-        features = np.array(features)
-        logging.info('KNN fitting data ({} features)'.format(features.shape))
-        neigh.fit(features, labels)
+        #logging.info('building up NN-Classifier')
+        #neigh = KNeighborsClassifier(n_neighbors=1 + 1, n_jobs=15,
+        #                             weights=calc_weights)  # 1 + 1 because first element has always 0 distance
+        #features = np.array(features)
+        #logging.info('KNN fitting data ({} features)'.format(features.shape))
+        #neigh.fit(features, labels)
 
         # logging.info('classify data')
         # pred = neigh.predict(features)
