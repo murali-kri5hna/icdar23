@@ -8,6 +8,11 @@ from pytorch_metric_learning.losses import BaseMetricLossFunction
 
 from utils.fast_ap_reward import FastAPReward
 
+"""
+The RLL implementation of the Pytorch metrics library(PML) with an additional reward scaling 
+added to the calculated losses. With the rewards calculated using the FastAP method also from
+PML.
+"""
 
 class RankedListReward(BaseMetricLossFunction):
     r"""Ranked List Loss described in https://arxiv.org/abs/1903.03238

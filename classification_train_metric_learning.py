@@ -33,6 +33,9 @@ torch.multiprocessing.set_sharing_strategy('file_system')
 
 from main import prepare_logging, train_val_split, get_optimizer
 
+'''
+dsdf
+'''
 def calculate_map_and_recall(softmax_outputs, labels):
     """
     Calculate mean Average Precision (mAP) and recall given softmax outputs and labels.

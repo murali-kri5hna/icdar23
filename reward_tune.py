@@ -1,3 +1,4 @@
+# Import required libraries and modules
 import logging, os, argparse, math, random, re, glob
 import pickle as pk
 from pathlib import Path
@@ -51,19 +52,20 @@ from main import prepare_logging, train_val_split, test, get_optimizer, validate
 
 from visualization.data_table import cluster_plot, addtoTable
 
+# Training function for one epoch
 def train_one_epoch(model, train_ds, Loss, optimizer, scheduler, epoch, args, logger, reward_baseline, **kwargs):
     
-
     model.train()
-    model = model.cuda()
+    model = model.cuda()  # Move the model to GPU
+
+    # If reward tuning is enabled, add dropout to the model
     if args['reward_tuning']:
         model.fc = torch.nn.Dropout(p=0.3)
 
-    #breakpoint()
-    
-    # set up the triplet stuff 
+    # Labels of the training dataset
     labels = train_ds.dataset.labels
     
+    # Sampler setup depending on whether reward tuning is active
     if args['reward_tuning']:
         sampler = MWritersPerNClusterSampler(np.array(train_ds.dataset.labels[args['train_options']['n_label']])[train_ds.indices],
                                              np.array(train_ds.dataset.labels[args['train_options']['m_label']])[train_ds.indices],
@@ -76,22 +78,26 @@ def train_one_epoch(model, train_ds, Loss, optimizer, scheduler, epoch, args, lo
     else:
         sampler = samplers.MPerClassSampler(np.array(train_ds.dataset.labels[args['train_label']])[train_ds.indices], args['train_options']['sampler_m'], length_before_new_iter=args['train_options']['length_before_new_iter']) #len(ds))
     
+    # DataLoader with the created sampler
     train_triplet_loader = torch.utils.data.DataLoader(train_ds, sampler=sampler, batch_size=args['train_options']['batch_size'], drop_last=True, num_workers=32)
     
-    pbar = tqdm(train_triplet_loader)
-    pbar.set_description('Epoch {} Training'.format(epoch))
-    iters = len(train_triplet_loader)
-    logger.log_value('Epoch', epoch, commit=False)
+    pbar = tqdm(train_triplet_loader)  # Progress bar for training
+    pbar.set_description('Epoch {} Training'.format(epoch))  # Set progress bar description
+    iters = len(train_triplet_loader)  # Total iterations in the epoch
+    logger.log_value('Epoch', epoch, commit=False)  # Log epoch number
 
+    # Accumulation step for gradient accumulation (used for large batch sizes)
     if args['train_options']['accumulation_steps']:
         accumulation_steps = args['train_options']['accumulation_steps']
 
-    reward_baseline = 0
+    reward_baseline = 0  # Initialize reward baseline
     
+    # Loop through the training data
     for i, (samples, labels) in enumerate(pbar):
-        idx = i
-        
-        it = iters * epoch + i
+        idx = i  # Current iteration index
+        it = iters * epoch + i  # Overall iteration count
+
+        # Adjust learning rate based on the scheduler
         for i, param_group in enumerate(optimizer.param_groups):
             if it > (len(scheduler) - 1):
                 param_group['lr'] = scheduler[-1]
@@ -101,37 +107,35 @@ def train_one_epoch(model, train_ds, Loss, optimizer, scheduler, epoch, args, lo
             if param_group.get('name', None) == 'lambda':
                 param_group['lr'] *= args['optimizer_options']['gmp_lr_factor']
 
+        # Separate writer and page labels
         if len(labels) == 3:
             writers, pages = labels[1], labels[2]
         else:
             writers, pages = labels[0], labels[1]
 
         samples = samples.cuda()
-        samples.requires_grad=True
+        samples.requires_grad = True  # Ensure the input requires gradient
 
+        # Define the training label to use (e.g., writer or cluster)
         if args['train_label'] == 'cluster':
             l = labels[0]
         if args['train_label'] == 'writer':
             l = labels[1]
 
+        # Define the reward label to use for reward-based training
         if args['reward_label'] == 'cluster':
             reward_label = labels[0]
 
         if args['reward_label'] == 'writer':
             reward_label = labels[1]
 
-        l = l.cuda()
+        l = l.cuda()  # Move the label to GPU
         reward_label = reward_label.cuda()
-        
+
+        # Pass the input samples through the model to get embeddings
         emb = model(samples)
         
-       
-
-        #ap_loss = FastAPLoss()
-        #APReward = FastAPReward()
-
-        #breakpoint()
-
+        # Select loss function based on the arguments
         if args['train_options']['loss'] == "triplet":
             loss = Loss(emb, l, emb, l)
     
@@ -146,8 +150,6 @@ def train_one_epoch(model, train_ds, Loss, optimizer, scheduler, epoch, args, lo
 
         if args['train_options']['loss'] == "rewardTriplet":
             loss = Loss(emb, l, emb, l, reward_label, reward_baseline, logger=logger)
-            #reward = Loss.reward(emb, reward_label)
-            #logger.log_value(f'reward', reward.item())
 
         if args['train_options']['loss'] == "RankedListLoss":
             loss = Loss(emb, l)
@@ -162,73 +164,66 @@ def train_one_epoch(model, train_ds, Loss, optimizer, scheduler, epoch, args, lo
             for key, value in kwargs.items():
                 if key == 'mining_func':
                     mining_func = value
-            #indices_tuple = mining_func(emb, l)
-            loss = Loss(emb, l) #, indices_tuple)
+            loss = Loss(emb, l)  # Loss with mining function for hard triplets
         
-        logger.log_value(f'loss', loss.item())
+        logger.log_value(f'loss', loss.item())  # Log the loss
 
+        # If reward tuning is enabled
         if args['reward_tuning']:
-            
-             ## Referring to the validation step, we are utilizing the steps in inference and compute_page_features
-    #        emb = torch.nn.functional.normalize(emb) 
-            feats = emb.detach().cpu().numpy()
+            feats = emb.detach().cpu().numpy()  # Detach and convert embeddings to numpy
             page_features, page_writers = compute_page_features(feats, np.array(writers), np.array(pages))
 
-            norm = 'powernorm'
-            pooling = SumPooling(norm)
+            norm = 'powernorm'  # Normalization type
+            pooling = SumPooling(norm)  # Apply sum pooling
             descs = pooling.encode(page_features)
 
-            _eval = Retrieval()
+            _eval = Retrieval()  # Instantiate the retrieval evaluator
 
-            #breakpoint()
-
+            # Calculate distances and mean Average Precision (mAP) as the reward
             dists = _eval.calc_distances(descs, page_writers, use_precomputed_distances=False)
             map = _eval.calc_only_map_from_distances(page_writers, dists)
-            logger.log_value(f'map_reward', map)
+            logger.log_value(f'map_reward', map)  # Log the map reward
 
+            # Update reward baseline after each accumulation step
             if idx % accumulation_steps == 0:
                 reward_baseline = map
 
-            #loss = loss*(-(map-reward_baseline))*1000 #gradient ascent with scaled reward
-            loss = loss*(-(map-reward_baseline))# gradient ascent no scaling
-
-            #breakpoint()
+            # Adjust loss using gradient ascent based on map reward
+            loss = loss * (-(map - reward_baseline))
+            
             if idx % accumulation_steps != 0:
                 logger.log_value(f'reward_tuned_loss', loss.item())
-                logger.log_value(f'map_with_baseline', map-reward_baseline)
-
+                logger.log_value(f'map_with_baseline', map - reward_baseline)
             
-            logger.log_value(f'lr', optimizer.param_groups[0]['lr'])
+            logger.log_value(f'lr', optimizer.param_groups[0]['lr'])  # Log learning rate
     
-            if idx % accumulation_steps == 0:  # Perform optimizer step
+            if idx % accumulation_steps == 0:  # Perform optimizer step at every accumulation
                 optimizer.zero_grad()
     
-            # compute gradient and update weights
+            # Backpropagate the loss
             if accumulation_steps > 1:
-                loss = loss / (accumulation_steps-1)
+                loss = loss / (accumulation_steps - 1)
             
             loss.backward()
     
-            if (idx + 1) % accumulation_steps == 0:  # Perform optimizer step
+            if (idx + 1) % accumulation_steps == 0:  # Update optimizer
                 optimizer.step()
             
-            torch.nn.utils.clip_grad_norm_(model.parameters(), 2)
+            torch.nn.utils.clip_grad_norm_(model.parameters(), 2)  # Clip gradients to prevent exploding gradients
         
+        # Regular (non-reward tuning) training
         else:
-            
-            logger.log_value(f'lr', optimizer.param_groups[0]['lr'])
+            logger.log_value(f'lr', optimizer.param_groups[0]['lr'])  # Log learning rate
     
-            # compute gradient and update weights
-            #loss = loss / accumulation_steps
             optimizer.zero_grad()
-            loss.backward()
+            loss.backward()  # Backpropagation
     
-            #if (i + 1) % accumulation_steps == 0:  # Perform optimizer step
-            optimizer.step()
+            optimizer.step()  # Update optimizer
             
-            torch.nn.utils.clip_grad_norm_(model.parameters(), 2)
+            torch.nn.utils.clip_grad_norm_(model.parameters(), 2)  # Gradient clipping
     
-    torch.cuda.empty_cache()
+    torch.cuda.empty_cache()  # Empty cache to free memory
+    
     if args['reward_tuning']:
         model.fc = torch.nn.Identity()
     return model

@@ -42,13 +42,23 @@ icdar2013_test :
     white_pixel_thresh : 0.95
     centered : True
 
-icdar19_test :
-    in_dir : /data/mpeer/databases/wi_comp_19_test
-    out_dir : /data/mpeer/resources/wi_comp_19_test_patches
-    win_size : 32
-    patches_per_page : 2000       
-    sigma : 3.5
-    edge_pixels : 0.125
+icdar19_train:
+    in_dir: /home/qy41tewa/rlmap_home/data/icdar19_train
+    out_dir: /cluster/qy41tewa/rl-map/dataset/icdar19/color/icdar19_train_2000patches
+    win_size: 32
+    patches_per_page: 2000
+    num_of_cluster: 5000
+    scale: -1
+    sigma: 3.5
+    edge_pixels: 0.125
+
+icdar19_test:
+    in_dir: /home/qy41tewa/rlmap_home/data/icdar19_test
+    out_dir: /cluster/qy41tewa/rl-map/dataset/icdar19/color/icdar19_test_patches
+    win_size: 32
+    patches_per_page: 2000
+    sigma: 3.5
+    edge_pixels: 0.125
 
 icdar17_test :
     in_dir : /data/mpeer/icdar2017-test-color

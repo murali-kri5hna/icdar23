@@ -1,6 +1,9 @@
 # requirements:
 #    python 3.x
 #    torch = 1.1.0
+"""
+Smooth AP implementation from https://github.com/Andrew-Brown1/Smooth_AP
+"""
 
 import torch
 

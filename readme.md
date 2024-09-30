@@ -1,3 +1,17 @@
+## Additions to Base Repository
+This repo contains updates that incorporate the ideas of optimizing the writer retrieval model towards task risk by using rewards calculated using the mean average precision of a ranked document list. 
+
+The additions for training with reward tuning are incorporated into reward_tune.py.
+
+And additional losses and samplers are added to the utils folder.
+- m_n_sampler: for sampling with restricted writer and page requirements
+- ranked_list_reward: Ranked List Reward implementation combined with the mean average precision loss from fast AP loss
+- Smooth_AP_loss_Brown
+
+The steps from the base repository as listed below can be followed to setup for training and testing.
+
+---
+
 ![header](assets/header.png)
 
 This repository contains the official code implementation of our paper 
@@ -48,7 +62,7 @@ If you use the patch extraction scripts provided, edit the paths of the respecti
 
 Run
 
-    python main.py --gpuid=GPU_ID --config=config/icdar2017.yml
+    python reward_tune.py --gpuid=GPU_ID --config=config/icdar2017.yml
 
 to run training on ICDAR2017. Afterward, testing is executed if a testset is specified in the config file. Refer to main.py for further commands.
 

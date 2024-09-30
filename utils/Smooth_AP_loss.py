@@ -3,6 +3,11 @@ from torch.cuda.amp import autocast
 from pytorch_metric_learning.utils import loss_and_miner_utils as lmu
 from pytorch_metric_learning.utils import common_functions as c_f
 
+
+"""
+Disfunctional SmmothAP implementation prototype.
+"""
+
 def sigmoid(tensor, temp=1.0):
     """Temperature controlled sigmoid with memory optimizations"""
     # Directly clamp only where necessary to avoid intermediate tensor creation

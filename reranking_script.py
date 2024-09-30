@@ -5,6 +5,12 @@ from reranking import sgr, gnn, krnn
 from evaluators.retrieval import Retrieval
 from utils.utils import load_config
 
+
+"""
+Reranking using the provided rerank.py, when provided with the features. 
+Prints the mAP and Top-1 values for each of the reanking methods.
+"""
+
 features_load_path = '/cluster/qy41tewa/rl-map/experiments/triplet_loss_model_reranking-2024-07-15-14-40/pfs_tf_triplet_1024_16.npz'
 loaded_features = np.load(features_load_path)
 
